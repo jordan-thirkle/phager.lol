@@ -9,6 +9,7 @@ const TeamArena = {
   flagOrb: { x: 0, z: 0, carrier: null, lastHeldTeam: null, dropTime: 0 },
   
   canEat(attacker, target) {
+    if (!attacker || !target) return false;
     if (attacker.team === target.team) return false;
     if (target.shielded) return false;
     const aMass = attacker.blobs.reduce((s,b)=>s+b.mass,0);

@@ -5,6 +5,7 @@ const FFA = {
   speedMultiplier: 1.0,
   
   canEat(attacker, target) {
+    if (!attacker || !target) return false;
     if (target.shielded) return false;
     const aMass = attacker.blobs.reduce((s,b)=>s+b.mass,0);
     const tMass = target.blobs.reduce((s,b)=>s+b.mass,0);

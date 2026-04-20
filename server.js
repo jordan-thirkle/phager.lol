@@ -226,7 +226,7 @@ class GameRoom {
           if (!ob || !b) continue;
           const attacker = p;
           const target = this.players[other.pid];
-          if (this.mode.canEat(attacker, target) && Math.hypot(b.x-ob.x, b.z-ob.z) < r * 0.75) {
+          if (target && this.mode.canEat(attacker, target) && Math.hypot(b.x-ob.x, b.z-ob.z) < r * 0.75) {
             b.mass += ob.mass; p.score += ob.mass;
             p.kills++; p.streak++; p.xp += Math.floor(50 + (ob.mass/10));
             eatenBlobs.push({ eaterPid: p.id, eaterIdx: i, victimPid: other.pid, victimIdx: other.idx });

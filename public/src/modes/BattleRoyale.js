@@ -15,6 +15,7 @@ const BattleRoyale = {
   ],
   
   canEat(attacker, target) {
+    if (!attacker || !target) return false;
     if (!this.gameStarted) return false;
     if (target.shielded) return false;
     const aMass = attacker.blobs.reduce((s,b)=>s+b.mass,0);
