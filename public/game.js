@@ -223,6 +223,70 @@ function gameLoop(dt) {
   HudSystem.updateNametags(AppState);
   HudSystem.updateLeaderboard(AppState);
   MinimapSystem.draw(AppState);
+
+  // Mode Specific Rendering
+  renderModeEntities();
+}
+
+function renderModeEntities() {
+  const gs = AppState.gameState;
+  
+  // Flag Orb (Team Arena)
+  if (gs.flagOrb) {
+    let orbEnt = AppState.flagOrbEnt;
+    if (!orbEnt) {
+        orbEnt = new pc.Entity('flagOrb');
+        orbEnt.addComponent('model', { type: 'sphere' });
+        const mat = new pc.StandardMaterial();
+        mat.emissive = new pc.Color(1, 0.84, 0); // Gold
+        mat.emissiveIntensity = 2;
+        mat.update();
+        orbEnt.model.meshInstances[0].material = mat;
+        AppState.app.root.addChild(orbEnt);
+        AppState.flagOrbEnt = orbEnt;
+    }
+    orbEnt.setPosition(gs.flagOrb.x, 30, gs.flagOrb.z);
+    orbEnt.setLocalScale(60, 60, 60);
+  } else if (AppState.flagOrbEnt) {
+    AppState.flagOrbEnt.destroy();
+    AppState.flagOrbEnt = null;
+  }
+
+  // Zone (Battle Royale)
+  if (gs.zone) {
+    let zoneEnt = AppState.zoneEnt;
+    if (!zoneEnt) {
+        zoneEnt = new pc.Entity('zone');
+        zoneEnt.addComponent('model', { type: 'cylinder' });
+        const mat = new pc.StandardMaterial();
+        mat.diffuse = new pc.Color(1, 0, 0);
+        mat.opacity = 0.2;
+        mat.blendType = pc.BLEND_NORMAL;
+        mat.update();
+        zoneEnt.model.meshInstances[0].material = mat;
+        AppState.app.root.addChild(zoneEnt);
+        
+        const inner = new pc.Entity('zoneInner');
+        inner.addComponent('model', { type: 'cylinder' });
+        const iMat = new pc.StandardMaterial();
+        iMat.emissive = new pc.Color(0, 0.2, 1);
+        iMat.opacity = 0.5;
+        iMat.blendType = pc.BLEND_ADDITIVE;
+        iMat.update();
+        inner.model.meshInstances[0].material = iMat;
+        zoneEnt.addChild(inner);
+        AppState.zoneInnerEnt = inner;
+        AppState.zoneEnt = zoneEnt;
+    }
+    zoneEnt.setPosition(gs.zone.centerX, 0, gs.zone.centerZ);
+    zoneEnt.setLocalScale(gs.zone.radius * 2, 500, gs.zone.radius * 2);
+    AppState.zoneInnerEnt.setLocalScale(1.02, 1, 1.02);
+    AppState.zoneInnerEnt.model.meshInstances[0].material.opacity = Math.sin(Date.now() * 0.004) * 0.2 + 0.4;
+    AppState.zoneInnerEnt.model.meshInstances[0].material.update();
+  } else if (AppState.zoneEnt) {
+    AppState.zoneEnt.destroy();
+    AppState.zoneEnt = null;
+  }
 }
 
 // ─── SOCKET ───────────────────────────────────────────────────
