@@ -131,6 +131,66 @@ function updateBot(p, dt) {
   if (!b) return;
   const totalMass = p.blobs.reduce((s,b)=>s+b.mass,0);
 
+  // PACK MODE (Task 3)
+  if (p.archetype === 'HUNTER' && !p.packRole) {
+    const partner = Object.values(players).find(op => {
+      if (op.id === p.id || op.archetype !== 'HUNTER' || !op.blobs || !op.blobs[0]) return false;
+      const opMass = op.blobs.reduce((s,bl)=>s+bl.mass,0);
+      const dist = Math.hypot(b.x - op.blobs[0].x, b.z - op.blobs[0].z);
+      const massDiff = Math.abs(totalMass - opMass) / totalMass;
+      return dist < 300 && massDiff < 0.2;
+    });
+
+    if (partner) {
+      const target = Object.values(players).find(tp => {
+        if (!tp.blobs || !tp.blobs[0]) return false;
+        const tMass = tp.blobs.reduce((s,bl)=>s+bl.mass,0);
+        const dist = Math.hypot(b.x - tp.blobs[0].x, b.z - tp.blobs[0].z);
+        return tMass > totalMass * 1.3 && dist < 400;
+      });
+
+      if (target) {
+        p.packRole = totalMass > partner.blobs.reduce((s,bl)=>s+bl.mass,0) ? 'bait' : 'sweep';
+        p.packPartner = partner.id;
+        p.packTarget = target.id;
+        partner.packRole = p.packRole === 'bait' ? 'sweep' : 'bait';
+        partner.packPartner = p.id;
+        partner.packTarget = target.id;
+      }
+    }
+  }
+
+  // Handle active pack role
+  if (p.packRole) {
+    const partner = players[p.packPartner];
+    const target = players[p.packTarget];
+    if (!partner || !target || !target.blobs || !target.blobs[0] || Math.hypot(b.x - partner.blobs[0].x, b.z - partner.blobs[0].z) > 400) {
+      delete p.packRole; delete p.packPartner; delete p.packTarget;
+    } else {
+      const tb = target.blobs[0];
+      const dist = Math.hypot(b.x - tb.x, b.z - tb.z);
+      if (dist > 500) {
+        delete p.packRole; delete p.packPartner; delete p.packTarget;
+      } else {
+        if (p.packRole === 'bait') {
+           // Approaches directly
+           p.input = { dx: (tb.x - b.x)/dist, dz: (tb.z - b.z)/dist };
+           if (dist < 180) handleSplit(p);
+        } else {
+           // Flanking/Sweep: approach from opposite side
+           const bait = partner.blobs[0];
+           const flankAngle = Math.atan2(tb.z - bait.z, tb.x - bait.x) + Math.PI;
+           const tx = tb.x + Math.cos(flankAngle) * 150;
+           const tz = tb.z + Math.sin(flankAngle) * 150;
+           const dx = tx - b.x, dz = tz - b.z;
+           const dLen = Math.hypot(dx, dz) || 1;
+           p.input = { dx: dx/dLen, dz: dz/dLen };
+        }
+        return; // Skip normal behavior
+      }
+    }
+  }
+
   // Ability Usage Logic (Task 2)
   const abilityData = AppState.abilities.get(p.id);
   if (abilityData && abilityData.remainingMs <= 0 && !abilityData.active) {
