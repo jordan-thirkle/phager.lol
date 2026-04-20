@@ -153,6 +153,7 @@ function gameLoop(dt) {
     AppState.socket.emit('input', MessagePack.encode(pkt)); 
     if (AppState.input.split) { AppState.socket.emit('split'); AppState.input.split = false; }
     if (AppState.input.boost) { AppState.socket.emit('boost'); AppState.input.boost = false; }
+    if (AppState.input.ability) { AppState.socket.emit('ability'); AppState.input.ability = false; }
   }
 
   const me = AppState.gameState.players.find(p=>p.id===AppState.myId);
@@ -160,6 +161,7 @@ function gameLoop(dt) {
 
   let totalMass = me.blobs.reduce((s,b)=>s+b.mass,0);
   CameraSystem.update(AppState, dt);
+  HudSystem.updateAbilityHUD(AppState);
 
   // Stats update
   AppState.myStats.peakMass = Math.max(AppState.myStats.peakMass, Math.floor(totalMass));
@@ -176,6 +178,11 @@ function gameLoop(dt) {
   const seenKeys = new Set();
   for (const p of AppState.gameState.players) {
     if (!p.blobs) continue;
+    // Team coloring
+    if (p.team) {
+      if (p.team === 'red') p.color = '#ff0044';
+      else if (p.team === 'blue') p.color = '#0088ff';
+    }
     for (const blob of p.blobs) {
       const key = blob.id || `${p.id}_0`;
       seenKeys.add(key);
@@ -190,9 +197,28 @@ function gameLoop(dt) {
       const sc = r * 2 * pulse;
       pEnt.ent.setPosition(pEnt.tx, r, pEnt.tz);
       pEnt.ent.setLocalScale(sc, sc, sc);
+
+      if (p.dashing) {
+          Particles.emitDashTrail(pEnt.tx, r, pEnt.tz, p.color, r);
+      }
+      if (p.magnetActive && AppState.animTime % 0.2 < 0.05) {
+          Particles.emitMagnetField(pEnt.tx, r, pEnt.tz, p.color);
+      }
     }
   }
   for (const key in AppState.pEnts) { if (!seenKeys.has(key)) { AppState.pEnts[key].ent.destroy(); delete AppState.pEnts[key]; } }
+
+  // Decoys Sync
+  const seenDecoys = new Set();
+  if (AppState.gameState.decoys) {
+    for (const d of AppState.gameState.decoys) {
+        seenDecoys.add(d.id);
+        const dEnt = getOrMakeBlobEnt(d.id, d.ownerId, d.color);
+        const r = massToRadius(d.mass);
+        dEnt.ent.setPosition(d.x, r, d.z);
+        dEnt.ent.setLocalScale(r * 2, r * 2, r * 2);
+    }
+  }
 
   HudSystem.updateNametags(AppState);
   HudSystem.updateLeaderboard(AppState);
@@ -256,6 +282,30 @@ function connectSocket() {
   });
   AppState.socket.on('feedbackBoost', () => { Particles.splitEffect(AppState.cam.x, 5, AppState.cam.z, AppState.myColor); });
   AppState.socket.on('splitEffect', () => { Audio.split(); });
+  AppState.socket.on('decoyHit', () => { shake(10); });
+
+  AppState.socket.on('ability_event', ({ playerId, ability, ts }) => {
+    // Trigger SFX/VFX based on ability type
+    const p = AppState.gameState.players.find(x => x.id === playerId);
+    const pos = p && p.blobs && p.blobs[0] ? p.blobs[0] : { x:0, z:0 };
+
+    if (ability === 'SHIELD') { 
+        if(typeof Audio.playShieldActivate === 'function') Audio.playShieldActivate(); 
+        Particles.emitShieldBreak(pos.x, 10, pos.z);
+    }
+    if (ability === 'MAGNET') { 
+        if(typeof Audio.playMagnetPulse === 'function') Audio.playMagnetPulse(); 
+    }
+    if (ability === 'DASH') { 
+        if(typeof Audio.playDashCrack === 'function') Audio.playDashCrack(); 
+    }
+    if (ability === 'DECOY') { 
+        if(typeof Audio.playDecoySpawn === 'function') Audio.playDecoySpawn(); 
+        Particles.spawnEffect(pos.x, 10, pos.z, p ? p.color : '#fff');
+    }
+    
+    if (playerId === AppState.myId) shake(8);
+  });
 
   AppState.socket.on('kill_feed', ({killer, victim}) => {
     HudSystem.addKill(`${killer} ate ${victim}`);

@@ -8,662 +8,525 @@ const msgpack = require('@msgpack/msgpack');
 const AbilitySystem = require('./public/src/abilities/AbilitySystem');
 const ModeManager = require('./public/src/modes/ModeManager');
 const FFA = require('./public/src/modes/FFA');
-
-const modeManager = new ModeManager(FFA);
+const TeamArena = require('./public/src/modes/TeamArena');
+const BattleRoyale = require('./public/src/modes/BattleRoyale');
 
 app.use(express.static('public'));
 
-// ─── CONFIG ───────────────────────────────────────────────────
-const ARENA = modeManager.getArenaSize().x;
 const TICK_MS = 1000 / 20;
 const MIN_MASS = 40;
 const MAX_MASS = 25000;
 const BASE_SPEED = 220;
-const MASS_LOSS_RATE = 0.9997;
 const SPLIT_SPEED = 800;
 const BOOST_THRUST = 550;
 const BOOST_MASS_COST = 20;
 const MAX_BLOBS = 16;
-const FOOD_COUNT = 700;
-const VIRUS_COUNT = 20;
-
-// ─── STATE ────────────────────────────────────────────────────
-let players = {};
-let foods = {};
-let viruses = {};
-
-// ─── APP STATE (for shared system access) ─────────────────────
-const AppState = {
-  players,
-  foods,
-  viruses,
-  abilities: new Map(), // Keyed by socketId
-  decoys: [],           // GDD §4.1 DECOY
-  getNearbyCells: null  // Will be set after getNearbyCells is defined
-};
-
-let lastFoodId = 0, lastVirusId = 0;
-
-function rndArena() { return (Math.random() - 0.5) * ARENA; }
-function spawnFood() {
-  lastFoodId++;
-  foods[lastFoodId] = { id: lastFoodId, x: rndArena(), z: rndArena(), mass: 3, color: '#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0') };
-  return foods[lastFoodId];
-}
-function spawnVirus() {
-  lastVirusId++;
-  let vx, vz;
-  do { vx=rndArena(); vz=rndArena(); } while(Object.values(players).some(p=>p.blobs&&p.blobs.some(b=>Math.hypot(b.x-vx, b.z-vz)<150)));
-  viruses[lastVirusId] = { id: lastVirusId, x: vx, z: vz };
-}
-
-for(let i=0; i<FOOD_COUNT; i++) spawnFood();
-for(let i=0; i<VIRUS_COUNT; i++) spawnVirus();
-
-// ─── BOT AI ───────────────────────────────────────────────────
-const BOT_NAMES = ['NEXUS', 'CIPHER', 'ROGUE', 'ECHO', 'NOVA', 'FLUX', 'ATLAS', 'TITAN', 'SPECTER', 'WRAITH', 'VORTEX', 'OMEGA'];
-const BOT_ARCHETYPES = ['HUNTER', 'FARMER', 'DEFENDER', 'GHOST', 'APEX'];
-const NEON_COLORS = ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff','#88ff00','#0088ff','#ff4488','#ffbb00'];
-
-function addBot() {
-  const id = 'bot_' + Math.random().toString(36).substr(2, 9);
-  const archetype = BOT_ARCHETYPES[Math.floor(Math.random()*BOT_ARCHETYPES.length)];
-  const abilityWeight = Math.random();
-  let ability = 'SHIELD';
-  if (abilityWeight > 0.85) ability = 'DECOY';
-  else if (abilityWeight > 0.65) ability = 'DASH';
-  else if (abilityWeight > 0.40) ability = 'MAGNET';
-
-  players[id] = {
-    id, isBot: true,
-    name: BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)],
-    color: NEON_COLORS[Math.floor(Math.random()*NEON_COLORS.length)],
-    blobs: [{ id: `${id}_0`, x: rndArena(), z: rndArena(), vx: 0, vz: 0, mass: Math.random()*200+100 }],
-    score: 0, kills: 0, streak: 0, xp: 0, lastSplit: 0, input: { dx:0, dz:0 },
-    archetype: archetype,
-    botTargetTime: 0,
-    activeAbility: ability,
-    lastMassLossTime: Date.now(),
-    lastMass: 0
-  };
-  AppState.abilities.set(id, { ability: ability, remainingMs: 0, active: false, activeDuration: 0 });
-}
-for(let i=0; i<15; i++) addBot();
-
-function scoreTarget(bot, target) {
-  if (target.isDecoy) return -Infinity;
-  const b = bot.blobs[0];
-  const tb = target.blobs[0];
-  if (!b || !tb) return -Infinity;
-  
-  const botMass = bot.blobs.reduce((s,b)=>s+b.mass,0);
-  const targetMass = target.blobs.reduce((s,b)=>s+b.mass,0);
-  const massRatio = botMass / targetMass;
-  if (massRatio < 0.88) return -Infinity; 
-  
-  const distance = Math.hypot(b.x - tb.x, b.z - tb.z);
-  if (distance > 800) return -Infinity;
-
-  let virusNear = 0;
-  const cells = getNearbyCells(tb.x, tb.z);
-  for (const cell of cells) {
-    for (const v of cell.viruses) {
-      if (Math.hypot(tb.x - v.x, tb.z - v.z) < 80) { virusNear = -200; break; }
-    }
-    if (virusNear) break;
-  }
-  
-  const shielded = target.shielded ? -300 : 0;
-  const archetypeBonus = getArchetypeBonus(bot.archetype, massRatio, distance);
-  
-  return (massRatio * 400) - (distance * 0.8) + virusNear + shielded + archetypeBonus;
-}
-
-function getArchetypeBonus(archetype, massRatio, distance) {
-  switch(archetype) {
-    case 'HUNTER':  return distance < 400 ? 300 : 100;
-    case 'FARMER':  return -500;
-    case 'DEFENDER': return massRatio > 2 ? 200 : -100;
-    case 'GHOST':   return massRatio > 1.1 ? 150 : -200;
-    case 'APEX':    return 200;
-    default: return 0;
-  }
-}
-
-function updateBot(p, dt) {
-  const b = p.blobs[0];
-  if (!b) return;
-  const totalMass = p.blobs.reduce((s,b)=>s+b.mass,0);
-
-  // PACK MODE (Task 3)
-  if (p.archetype === 'HUNTER' && !p.packRole) {
-    const partner = Object.values(players).find(op => {
-      if (op.id === p.id || op.archetype !== 'HUNTER' || !op.blobs || !op.blobs[0]) return false;
-      const opMass = op.blobs.reduce((s,bl)=>s+bl.mass,0);
-      const dist = Math.hypot(b.x - op.blobs[0].x, b.z - op.blobs[0].z);
-      const massDiff = Math.abs(totalMass - opMass) / totalMass;
-      return dist < 300 && massDiff < 0.2;
-    });
-
-    if (partner) {
-      const target = Object.values(players).find(tp => {
-        if (!tp.blobs || !tp.blobs[0]) return false;
-        const tMass = tp.blobs.reduce((s,bl)=>s+bl.mass,0);
-        const dist = Math.hypot(b.x - tp.blobs[0].x, b.z - tp.blobs[0].z);
-        return tMass > totalMass * 1.3 && dist < 400;
-      });
-
-      if (target) {
-        p.packRole = totalMass > partner.blobs.reduce((s,bl)=>s+bl.mass,0) ? 'bait' : 'sweep';
-        p.packPartner = partner.id;
-        p.packTarget = target.id;
-        partner.packRole = p.packRole === 'bait' ? 'sweep' : 'bait';
-        partner.packPartner = p.id;
-        partner.packTarget = target.id;
-      }
-    }
-  }
-
-  // Handle active pack role
-  if (p.packRole) {
-    const partner = players[p.packPartner];
-    const target = players[p.packTarget];
-    if (!partner || !target || !target.blobs || !target.blobs[0] || Math.hypot(b.x - partner.blobs[0].x, b.z - partner.blobs[0].z) > 400) {
-      delete p.packRole; delete p.packPartner; delete p.packTarget;
-    } else {
-      const tb = target.blobs[0];
-      const dist = Math.hypot(b.x - tb.x, b.z - tb.z);
-      if (dist > 500) {
-        delete p.packRole; delete p.packPartner; delete p.packTarget;
-      } else {
-        if (p.packRole === 'bait') {
-           // Approaches directly
-           p.input = { dx: (tb.x - b.x)/dist, dz: (tb.z - b.z)/dist };
-           if (dist < 180) handleSplit(p);
-        } else {
-           // Flanking/Sweep: approach from opposite side
-           const bait = partner.blobs[0];
-           const flankAngle = Math.atan2(tb.z - bait.z, tb.x - bait.x) + Math.PI;
-           const tx = tb.x + Math.cos(flankAngle) * 150;
-           const tz = tb.z + Math.sin(flankAngle) * 150;
-           const dx = tx - b.x, dz = tz - b.z;
-           const dLen = Math.hypot(dx, dz) || 1;
-           p.input = { dx: dx/dLen, dz: dz/dLen };
-        }
-        return; // Skip normal behavior
-      }
-    }
-  }
-
-  // Ability Usage Logic (Task 2)
-  const abilityData = AppState.abilities.get(p.id);
-  if (abilityData && abilityData.remainingMs <= 0 && !abilityData.active) {
-    let shouldActivate = false;
-    const ability = abilityData.ability;
-    
-    if (ability === 'SHIELD') {
-      const threat = Object.values(players).find(tp => {
-        if (tp.id === p.id || !tp.blobs || !tp.blobs[0]) return false;
-        const dist = Math.hypot(b.x - tp.blobs[0].x, b.z - tp.blobs[0].z);
-        const tMass = tp.blobs.reduce((s,bl)=>s+bl.mass,0);
-        return dist < 200 && tMass > totalMass * 1.1;
-      });
-      if (threat) shouldActivate = true;
-    } else if (ability === 'MAGNET') {
-      let targetsInRange = 0;
-      for(const tid in players) {
-        if(tid === p.id) continue;
-        const tp = players[tid];
-        if(!tp.blobs || !tp.blobs[0]) continue;
-        if(Math.hypot(b.x-tp.blobs[0].x, b.z-tp.blobs[0].z) < 600) targetsInRange++;
-      }
-      const radius = Math.pow(totalMass/p.blobs.length, 0.45) * 2.2;
-      let foodNearby = 0;
-      getNearbyCells(b.x, b.z).forEach(c => foodNearby += c.foods.length);
-      if (targetsInRange < 3 && foodNearby >= 8) shouldActivate = true;
-    } else if (ability === 'DASH') {
-        // Target fleeing and dist < 250
-        // (Simplified for now: if we have a target and we're moving toward it)
-    } else if (ability === 'DECOY') {
-      if (totalMass < p.lastMass * 0.85 && Date.now() - p.lastMassLossTime < 3000) shouldActivate = true;
-    }
-
-    if (shouldActivate) {
-      if (AbilitySystem.tryActivate(p.id, AppState)) {
-        io.emit('ability_event', { playerId: p.id, ability, ts: Date.now() });
-      }
-    }
-  }
-  p.lastMass = totalMass;
-  if (totalMass < p.lastMass) p.lastMassLossTime = Date.now();
-
-  if (p.botTargetTime > Date.now()) return;
-  p.botTargetTime = Date.now() + 500;
-
-  let bestScore = -Infinity;
-  let targetPlayer = null;
-
-  for (const tid in players) {
-    if (tid === p.id) continue;
-    const tp = players[tid];
-    if (!tp.blobs || !tp.blobs.length) continue;
-    const score = scoreTarget(p, tp);
-    if (score > bestScore) {
-      bestScore = score;
-      targetPlayer = tp;
-    }
-  }
-
-  // Archetype Behavior (Task 1)
-  let moveTarget = null;
-
-  if (p.archetype === 'HUNTER') {
-    if (targetPlayer) moveTarget = targetPlayer.blobs[0];
-    else {
-      let closestF = null, cDist = Infinity;
-      for (const fid in foods) {
-        const f = foods[fid];
-        const dist = Math.hypot(b.x-f.x, b.z-f.z);
-        if (dist < cDist) { cDist = dist; closestF = f; }
-      }
-      if (closestF) moveTarget = closestF;
-    }
-  } else if (p.archetype === 'FARMER') {
-    let bestCell = null, maxFood = -1;
-    grid.forEach(cell => {
-      if (cell.foods.length > maxFood) {
-        maxFood = cell.foods.length;
-        bestCell = cell;
-      }
-    });
-    // Just find nearest food in best cell or overall
-    let closestF = null, cDist = Infinity;
-    for (const fid in foods) {
-      const f = foods[fid];
-      const dist = Math.hypot(b.x-f.x, b.z-f.z);
-      if (dist < cDist) { cDist = dist; closestF = f; }
-    }
-    moveTarget = closestF;
-    // Flee
-    const threat = Object.values(players).find(tp => tp.id !== p.id && tp.blobs && tp.blobs[0] && Math.hypot(b.x-tp.blobs[0].x, b.z-tp.blobs[0].z) < 250 && tp.score > p.score);
-    if (threat) {
-      const dx = b.x - threat.blobs[0].x, dz = b.z - threat.blobs[0].z;
-      const len = Math.hypot(dx, dz) || 1;
-      p.input = { dx: dx/len, dz: dz/len };
-      return;
-    }
-  } else if (p.archetype === 'DEFENDER') {
-    const waypoints = [{x:0,z:0}, {x:200,z:0}, {x:0,z:200}];
-    p.waypointIdx = p.waypointIdx || 0;
-    const wp = waypoints[p.waypointIdx];
-    if (Math.hypot(b.x-wp.x, b.z-wp.z) < 50) p.waypointIdx = (p.waypointIdx + 1) % waypoints.length;
-    moveTarget = wp;
-    // Shoot virus
-    const largePlayer = Object.values(players).find(tp => tp.id !== p.id && tp.blobs && tp.blobs[0] && Math.hypot(b.x-tp.blobs[0].x, b.z-tp.blobs[0].z) < 500 && tp.score > totalMass * 1.5);
-    if (largePlayer && Date.now() - (p.lastShoot||0) > 1000) {
-       // logic to shoot virus (placeholder for Task 1)
-       p.lastShoot = Date.now();
-    }
-  } else if (p.archetype === 'GHOST') {
-     if (targetPlayer) {
-       moveTarget = targetPlayer.blobs[0];
-       if (Date.now() - (p.lastGhostSplit||0) > (8000 + Math.random()*4000)) {
-         handleSplit(p);
-         p.lastGhostSplit = Date.now();
-       }
-     }
-  } else if (p.archetype === 'APEX') {
-    if (targetPlayer && totalMass > 600) moveTarget = targetPlayer.blobs[0];
-    else if (totalMass < 300) {
-      // Farm
-    }
-  }
-
-  if (moveTarget) {
-    const dx = moveTarget.x - b.x;
-    const dz = moveTarget.z - b.z;
-    const len = Math.hypot(dx, dz) || 1;
-    p.input = { dx: dx/len, dz: dz/len };
-  }
-}
-
-// ─── SPATIAL HASH ─────────────────────────────────────────────
 const CELL_SIZE = 200;
-let grid = new Map();
 
-function buildSpatialHash() {
-  grid.clear();
-  // Insert foods
-  for (const id in foods) {
-    const f = foods[id];
-    const cx = Math.floor(f.x / CELL_SIZE), cz = Math.floor(f.z / CELL_SIZE);
-    const key = `${cx},${cz}`;
-    if (!grid.has(key)) grid.set(key, { foods: [], viruses: [], blobs: [] });
-    grid.get(key).foods.push(f);
+class GameRoom {
+  constructor(id, modeConfig) {
+    this.id = id;
+    this.mode = new ModeManager(modeConfig);
+    this.arena = this.mode.getArenaSize().x;
+    this.players = {};
+    this.foods = {};
+    this.viruses = {};
+    this.decoys = [];
+    this.abilities = new Map();
+    this.grid = new Map();
+    this.lastFoodId = 0;
+    this.lastVirusId = 0;
+    this.gameTime = 0;
+    this.payloadLogTimer = 0;
+
+    // Initial spawn
+    for(let i=0; i<700; i++) this.spawnFood();
+    for(let i=0; i<20; i++) this.spawnVirus();
+    
+    // Bot scaling
+    this.botTimer = setInterval(() => this.scaleBots(), 10000);
   }
-  // Insert viruses
-  for (const id in viruses) {
-    const v = viruses[id];
-    const cx = Math.floor(v.x / CELL_SIZE), cz = Math.floor(v.z / CELL_SIZE);
-    const key = `${cx},${cz}`;
-    if (!grid.has(key)) grid.set(key, { foods: [], viruses: [], blobs: [] });
-    grid.get(key).viruses.push(v);
+
+  rndArena() { return (Math.random() - 0.5) * this.arena; }
+
+  spawnFood() {
+    this.lastFoodId++;
+    this.foods[this.lastFoodId] = { id: this.lastFoodId, x: this.rndArena(), z: this.rndArena(), mass: 3, color: '#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0') };
   }
-  // Insert blobs
-  for (const pid in players) {
-    const p = players[pid];
-    if (!p.blobs) continue;
-    for (let i = 0; i < p.blobs.length; i++) {
-      const b = p.blobs[i];
-      const cx = Math.floor(b.x / CELL_SIZE), cz = Math.floor(b.z / CELL_SIZE);
+
+  spawnVirus() {
+    this.lastVirusId++;
+    let vx, vz;
+    do { vx=this.rndArena(); vz=this.rndArena(); } while(Object.values(this.players).some(p=>p.blobs&&p.blobs.some(b=>Math.hypot(b.x-vx, b.z-vz)<150)));
+    this.viruses[this.lastVirusId] = { id: this.lastVirusId, x: vx, z: vz };
+  }
+
+  scaleBots() {
+    const humanCount = Object.values(this.players).filter(p => !p.isBot).length;
+    const targetBotCount = Math.max(5, 15 - humanCount);
+    const currentBots = Object.values(this.players).filter(p => p.isBot);
+    if (currentBots.length < targetBotCount) this.addBot();
+    else if (currentBots.length > targetBotCount) {
+      const lowest = currentBots.sort((a,b) => a.score - b.score)[0];
+      if (lowest) this.removePlayer(lowest.id);
+    }
+  }
+
+  addBot() {
+    const id = 'bot_' + Math.random().toString(36).substr(2, 9);
+    const archetypes = ['HUNTER', 'FARMER', 'DEFENDER', 'GHOST', 'APEX'];
+    const archetype = archetypes[Math.floor(Math.random()*archetypes.length)];
+    const abilityWeight = Math.random();
+    let ability = 'SHIELD';
+    if (abilityWeight > 0.85) ability = 'DECOY';
+    else if (abilityWeight > 0.65) ability = 'DASH';
+    else if (abilityWeight > 0.40) ability = 'MAGNET';
+
+    const bot = {
+      id, isBot: true,
+      name: ['NEXUS', 'CIPHER', 'ROGUE', 'ECHO', 'NOVA', 'FLUX', 'ATLAS', 'TITAN'][Math.floor(Math.random()*8)],
+      color: ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff'][Math.floor(Math.random()*6)],
+      blobs: [{ id: `${id}_0`, x: this.rndArena(), z: this.rndArena(), vx: 0, vz: 0, mass: Math.random()*200+100 }],
+      score: 0, kills: 0, streak: 0, xp: 0, lastSplit: 0, input: { dx:0, dz:0 },
+      archetype,
+      botTargetTime: 0,
+      activeAbility: ability,
+      lastMassLossTime: Date.now(),
+      lastMass: 0
+    };
+    this.players[id] = bot;
+    this.abilities.set(id, { ability, remainingMs: 0, active: false, activeDuration: 0 });
+    this.mode.onPlayerJoin(bot, this);
+  }
+
+  removePlayer(id) {
+    const p = this.players[id];
+    if (p) {
+        this.mode.onPlayerDeath(p, this);
+        delete this.players[id];
+        this.abilities.delete(id);
+    }
+  }
+
+  buildSpatialHash() {
+    this.grid.clear();
+    for (const id in this.foods) {
+      const f = this.foods[id];
+      const cx = Math.floor(f.x / CELL_SIZE), cz = Math.floor(f.z / CELL_SIZE);
       const key = `${cx},${cz}`;
-      if (!grid.has(key)) grid.set(key, { foods: [], viruses: [], blobs: [] });
-      grid.get(key).blobs.push({ pid, idx: i, blob: b });
+      if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });
+      this.grid.get(key).foods.push(f);
+    }
+    for (const id in this.viruses) {
+      const v = this.viruses[id];
+      const cx = Math.floor(v.x / CELL_SIZE), cz = Math.floor(v.z / CELL_SIZE);
+      const key = `${cx},${cz}`;
+      if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });
+      this.grid.get(key).viruses.push(v);
+    }
+    for (const pid in this.players) {
+      const p = this.players[pid];
+      if (!p.blobs) continue;
+      for (let i = 0; i < p.blobs.length; i++) {
+        const b = p.blobs[i];
+        const cx = Math.floor(b.x / CELL_SIZE), cz = Math.floor(b.z / CELL_SIZE);
+        const key = `${cx},${cz}`;
+        if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });
+        this.grid.get(key).blobs.push({ pid, idx: i, blob: b });
+      }
     }
   }
-}
 
-function getNearbyCells(x, z) {
-  const cx = Math.floor(x / CELL_SIZE), cz = Math.floor(z / CELL_SIZE);
-  const cells = [];
-  for (let i = -1; i <= 1; i++) {
-    for (let j = -1; j <= 1; j++) {
-      const key = `${cx+i},${cz+j}`;
-      if (grid.has(key)) cells.push(grid.get(key));
+  getNearbyCells(x, z) {
+    const cx = Math.floor(x / CELL_SIZE), cz = Math.floor(z / CELL_SIZE);
+    const cells = [];
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        const key = `${cx+i},${cz+j}`;
+        if (this.grid.has(key)) cells.push(this.grid.get(key));
+      }
     }
+    return cells;
   }
-  return cells;
-}
-AppState.getNearbyCells = getNearbyCells;
 
-// ─── PHYSICS & COLLISIONS ──────────────────────────────────────
-function massToRadius(m) { return Math.pow(m, 0.45) * 2.2; }
+  tick() {
+    const dt = TICK_MS / 1000;
+    this.gameTime += TICK_MS;
+    this.buildSpatialHash();
+    
+    // We need to pass a mock AppState to AbilitySystem
+    const appState = {
+      players: this.players, foods: this.foods, viruses: this.viruses,
+      abilities: this.abilities, decoys: this.decoys,
+      getNearbyCells: (x, z) => this.getNearbyCells(x, z)
+    };
+    AbilitySystem.tick(appState, TICK_MS);
+    this.mode.onTick(this, TICK_MS);
 
-function checkEating() {
-  let eatenFoods = [], eatenViruses = [], eatenBlobs = [];
+    for (const pid in this.players) {
+      const p = this.players[pid];
+      if (!p.blobs) continue;
+      if (p.isBot) this.updateBot(p, dt);
 
-  for (const pid in players) {
-    const p = players[pid];
-    if (!p.blobs) continue;
+      for (const b of p.blobs) {
+        b.x += (b.vx||0) * dt;
+        b.z += (b.vz||0) * dt;
+        b.vx = (b.vx||0) * 0.87;
+        b.vz = (b.vz||0) * 0.87;
+        b.x = Math.max(-this.arena/2, Math.min(this.arena/2, b.x));
+        b.z = Math.max(-this.arena/2, Math.min(this.arena/2, b.z));
+      }
+
+      if (p.input) {
+        const { dx, dz } = p.input;
+        const totalMass = p.blobs.reduce((s,b)=>s+b.mass,0);
+        const speed = BASE_SPEED * this.mode.getSpeedMultiplier() * Math.pow(totalMass / p.blobs.length, -0.22);
+        for (const b of p.blobs) {
+          b.x += dx * speed * dt;
+          b.z += dz * speed * dt;
+          b.x = Math.max(-this.arena/2, Math.min(this.arena/2, b.x));
+          b.z = Math.max(-this.arena/2, Math.min(this.arena/2, b.z));
+        }
+      }
+      this.checkEating(p);
+    }
+
+    this.broadcastState();
+  }
+
+  checkEating(p) {
+    if (!p.blobs) return;
+    const eatenFoods = [], eatenViruses = [], eatenBlobs = [];
     for (let i=0; i<p.blobs.length; i++) {
       const b = p.blobs[i];
-      const r = massToRadius(b.mass);
-      const nearby = getNearbyCells(b.x, b.z);
-
+      const r = Math.pow(b.mass, 0.45) * 2.2;
+      const nearby = this.getNearbyCells(b.x, b.z);
       for (const cell of nearby) {
-        // Food
         for (const f of cell.foods) {
-          if (foods[f.id] && Math.hypot(b.x-f.x, b.z-f.z) < r) {
+          if (this.foods[f.id] && Math.hypot(b.x-f.x, b.z-f.z) < r) {
             b.mass += f.mass; p.score += f.mass; p.xp += 1;
-            eatenFoods.push(f.id); delete foods[f.id];
-            if (!p.isBot) io.to(pid).emit('feedbackEatFood', {x:f.x, z:f.z});
+            delete this.foods[f.id];
+            if (!p.isBot) io.to(p.id).emit('feedbackEatFood', {x:f.x, z:f.z});
           }
         }
-        // Viruses
         for (const v of cell.viruses) {
-          if (viruses[v.id] && b.mass > 200 && Math.hypot(b.x-v.x, b.z-v.z) < r) {
-            eatenViruses.push(v.id); delete viruses[v.id];
-            explodeVirus(p, i);
-            break; // blob was destroyed/split
+          if (this.viruses[v.id] && b.mass > 200 && Math.hypot(b.x-v.x, b.z-v.z) < r) {
+            delete this.viruses[v.id];
+            this.explodeVirus(p, i);
+            break;
           }
         }
-        // Other blobs
         for (const other of cell.blobs) {
-          if (other.pid === pid) continue;
+          if (other.pid === p.id) continue;
           const ob = other.blob;
           if (!ob || !b) continue;
-          
           const attacker = p;
-          const target = players[other.pid];
-          
-          if (modeManager.canEat(attacker, target) && Math.hypot(b.x-ob.x, b.z-ob.z) < r * 0.75) {
+          const target = this.players[other.pid];
+          if (this.mode.canEat(attacker, target) && Math.hypot(b.x-ob.x, b.z-ob.z) < r * 0.75) {
             b.mass += ob.mass; p.score += ob.mass;
             p.kills++; p.streak++; p.xp += Math.floor(50 + (ob.mass/10));
-            eatenBlobs.push({ eaterPid: pid, eaterIdx: i, victimPid: other.pid, victimIdx: other.idx });
-            if (!p.isBot) io.to(pid).emit('feedbackEatPlayer', {x:ob.x, z:ob.z, mass:ob.mass, streak:p.streak, color:players[other.pid].color});
-            io.emit('kill_feed', { killer: p.name, victim: players[other.pid].name });
+            eatenBlobs.push({ eaterPid: p.id, eaterIdx: i, victimPid: other.pid, victimIdx: other.idx });
+            if (!p.isBot) io.to(p.id).emit('feedbackEatPlayer', {x:ob.x, z:ob.z, mass:ob.mass, streak:p.streak, color:target.color});
+            io.to(this.id).emit('kill_feed', { killer: p.name, victim: target.name });
           }
         }
-        
-        // Decoys
-        for (let j = AppState.decoys.length - 1; j >= 0; j--) {
-          const decoy = AppState.decoys[j];
-          if (decoy.ownerId === pid) continue;
-          if (Math.hypot(b.x - decoy.x, b.z - decoy.z) < r + massToRadius(decoy.mass) * 0.5) {
-            AppState.decoys.splice(j, 1);
-            if (!p.isBot) io.to(pid).emit('decoyHit');
+        for (let j = this.decoys.length - 1; j >= 0; j--) {
+          const decoy = this.decoys[j];
+          if (decoy.ownerId === p.id) continue;
+          if (Math.hypot(b.x - decoy.x, b.z - decoy.z) < r + Math.pow(decoy.mass, 0.45) * 2.2 * 0.5) {
+            this.decoys.splice(j, 1);
+            if (!p.isBot) io.to(p.id).emit('decoyHit');
           }
         }
       }
     }
+    for (const e of eatenBlobs) {
+      const vp = this.players[e.victimPid];
+      if (vp && vp.blobs && vp.blobs[e.victimIdx]) {
+        vp.blobs.splice(e.victimIdx, 1);
+        if (vp.blobs.length === 0) {
+            if (vp.isBot) { setTimeout(() => this.addBot(), 3000); delete this.players[e.victimPid]; }
+            else io.to(e.victimPid).emit('dead', { killedBy: this.players[e.eaterPid].name });
+        }
+      }
+    }
+    while (Object.keys(this.foods).length < 700) this.spawnFood();
+    while (Object.keys(this.viruses).length < 20) this.spawnVirus();
   }
 
-  // Process blob deaths
-  for (const e of eatenBlobs) {
-    const vp = players[e.victimPid];
-    if (vp && vp.blobs && vp.blobs[e.victimIdx]) {
-      vp.blobs.splice(e.victimIdx, 1);
-      if (vp.blobs.length === 0) {
-        if (vp.isBot) { setTimeout(() => addBot(), 3000); delete players[e.victimPid]; }
-        else io.to(e.victimPid).emit('dead', { killedBy: players[e.eaterPid].name });
+  explodeVirus(p, idx) {
+    const b = p.blobs[idx];
+    const parts = Math.min(8, MAX_BLOBS - p.blobs.length + 1);
+    if (parts <= 1) return;
+    const newMass = b.mass / parts;
+    p.blobs.splice(idx, 1);
+    p.streak = 0;
+    for (let i=0; i<parts; i++) {
+        const angle = (Math.PI*2/parts)*i;
+        p.blobs.push({ id: `${p.id}_v_${Date.now()}_${i}`, x: b.x, z: b.z, mass: newMass, vx: Math.cos(angle)*SPLIT_SPEED*0.8, vz: Math.sin(angle)*SPLIT_SPEED*0.8 });
+    }
+    if (!p.isBot) io.to(p.id).emit('virusHit', {x:b.x, z:b.z});
+  }
+
+  handleSplit(p) {
+    if (Date.now() - p.lastSplit < 500) return;
+    const canSplit = p.blobs.filter(b => b.mass >= MIN_MASS * 2);
+    if (canSplit.length === 0 || p.blobs.length >= MAX_BLOBS) return;
+    p.lastSplit = Date.now();
+    let toAdd = [];
+    for (const b of canSplit) {
+      if (p.blobs.length + toAdd.length >= MAX_BLOBS) break;
+      b.mass /= 2;
+      const dx = p.input?.dx || 1, dz = p.input?.dz || 0;
+      toAdd.push({ id: `${p.id}_s_${Date.now()}_${Math.random()}`, x: b.x, z: b.z, mass: b.mass, vx: dx * SPLIT_SPEED, vz: dz * SPLIT_SPEED });
+    }
+    p.blobs.push(...toAdd);
+    if (!p.isBot) io.to(p.id).emit('splitEffect');
+  }
+
+  scoreTarget(bot, target) {
+    if (target.isDecoy) return -Infinity;
+    const b = bot.blobs[0];
+    const tb = target.blobs[0];
+    if (!b || !tb) return -Infinity;
+    const botMass = bot.blobs.reduce((s,b)=>s+b.mass,0);
+    const targetMass = target.blobs.reduce((s,b)=>s+b.mass,0);
+    const massRatio = botMass / targetMass;
+    if (massRatio < 0.88) return -Infinity; 
+    const distance = Math.hypot(b.x - tb.x, b.z - tb.z);
+    if (distance > 800) return -Infinity;
+    let virusNear = 0;
+    const cells = this.getNearbyCells(tb.x, tb.z);
+    for (const cell of cells) {
+      for (const v of cell.viruses) {
+        if (Math.hypot(tb.x - v.x, tb.z - v.z) < 80) { virusNear = -200; break; }
       }
+      if (virusNear) break;
+    }
+    const shielded = target.shielded ? -300 : 0;
+    const archetypes = ['HUNTER', 'FARMER', 'DEFENDER', 'GHOST', 'APEX'];
+    const bonus = this.getArchetypeBonus(bot.archetype, massRatio, distance);
+    return (massRatio * 400) - (distance * 0.8) + virusNear + shielded + bonus;
+  }
+
+  getArchetypeBonus(archetype, massRatio, distance) {
+    switch(archetype) {
+      case 'HUNTER':  return distance < 400 ? 300 : 100;
+      case 'FARMER':  return -500;
+      case 'DEFENDER': return massRatio > 2 ? 200 : -100;
+      case 'GHOST':   return massRatio > 1.1 ? 150 : -200;
+      case 'APEX':    return 200;
+      default: return 0;
     }
   }
 
-  while (Object.keys(foods).length < FOOD_COUNT) spawnFood();
-  while (Object.keys(viruses).length < VIRUS_COUNT) spawnVirus();
-}
+  updateBot(p, dt) {
+    const b = p.blobs[0];
+    if (!b) return;
+    const totalMass = p.blobs.reduce((s,b)=>s+b.mass,0);
 
-function explodeVirus(p, blobIdx) {
-  const b = p.blobs[blobIdx];
-  const parts = Math.min(8, MAX_BLOBS - p.blobs.length + 1);
-  if (parts <= 1) return;
-  const newMass = b.mass / parts;
-  p.blobs.splice(blobIdx, 1);
-  p.streak = 0;
-  for (let i=0; i<parts; i++) {
-    const angle = (Math.PI*2/parts)*i;
-    p.blobs.push({
-      id: `${p.id}_${Date.now()}_${i}`,
-      x: b.x, z: b.z, mass: newMass,
-      vx: Math.cos(angle) * SPLIT_SPEED * 0.8,
-      vz: Math.sin(angle) * SPLIT_SPEED * 0.8
-    });
+    // PACK MODE
+    if (p.archetype === 'HUNTER' && !p.packRole) {
+      const partner = Object.values(this.players).find(op => {
+        if (op.id === p.id || op.archetype !== 'HUNTER' || !op.blobs || !op.blobs[0]) return false;
+        const opMass = op.blobs.reduce((s,bl)=>s+bl.mass,0);
+        const dist = Math.hypot(b.x - op.blobs[0].x, b.z - op.blobs[0].z);
+        const massDiff = Math.abs(totalMass - opMass) / totalMass;
+        return dist < 300 && massDiff < 0.2;
+      });
+      if (partner) {
+        const target = Object.values(this.players).find(tp => {
+          if (!tp.blobs || !tp.blobs[0]) return false;
+          const tMass = tp.blobs.reduce((s,bl)=>s+bl.mass,0);
+          const dist = Math.hypot(b.x - tp.blobs[0].x, b.z - tp.blobs[0].z);
+          return tMass > totalMass * 1.3 && dist < 400;
+        });
+        if (target) {
+          p.packRole = totalMass > partner.blobs.reduce((s,bl)=>s+bl.mass,0) ? 'bait' : 'sweep';
+          p.packPartner = partner.id;
+          p.packTarget = target.id;
+          partner.packRole = p.packRole === 'bait' ? 'sweep' : 'bait';
+          partner.packPartner = p.id;
+          partner.packTarget = target.id;
+        }
+      }
+    }
+
+    if (p.packRole) {
+      const partner = this.players[p.packPartner];
+      const target = this.players[p.packTarget];
+      if (!partner || !target || !target.blobs || !target.blobs[0]) {
+        delete p.packRole; delete p.packPartner; delete p.packTarget;
+      } else {
+        const tb = target.blobs[0];
+        const dist = Math.hypot(b.x - tb.x, b.z - tb.z);
+        if (p.packRole === 'bait') {
+           p.input = { dx: (tb.x - b.x)/dist, dz: (tb.z - b.z)/dist };
+           if (dist < 180) this.handleSplit(p);
+        } else {
+           const bait = partner.blobs[0];
+           const flankAngle = Math.atan2(tb.z - bait.z, tb.x - bait.x) + Math.PI;
+           const tx = tb.x + Math.cos(flankAngle) * 150, tz = tb.z + Math.sin(flankAngle) * 150;
+           const dx = tx - b.x, dz = tz - b.z, dLen = Math.hypot(dx, dz) || 1;
+           p.input = { dx: dx/dLen, dz: dz/dLen };
+        }
+        return;
+      }
+    }
+
+    // Ability Logic
+    const abilityData = this.abilities.get(p.id);
+    if (abilityData && abilityData.remainingMs <= 0 && !abilityData.active) {
+      let should = false;
+      if (abilityData.ability === 'SHIELD') {
+        const threat = Object.values(this.players).find(tp => tp.id !== p.id && tp.blobs && tp.blobs[0] && Math.hypot(b.x-tp.blobs[0].x, b.z-tp.blobs[0].z) < 200 && tp.score > totalMass * 1.1);
+        if (threat) should = true;
+      } else if (abilityData.ability === 'MAGNET') {
+        let fNear = 0; this.getNearbyCells(b.x, b.z).forEach(c => fNear += c.foods.length);
+        if (fNear >= 8) should = true;
+      }
+      if (should) {
+        const appState = { players: this.players, foods: this.foods, viruses: this.viruses, abilities: this.abilities, decoys: this.decoys, getNearbyCells: (x, z) => this.getNearbyCells(x, z) };
+        if (AbilitySystem.tryActivate(p.id, appState)) io.to(this.id).emit('ability_event', { playerId: p.id, ability: abilityData.ability, ts: Date.now() });
+      }
+    }
+
+    if (p.botTargetTime > Date.now()) return;
+    p.botTargetTime = Date.now() + 500;
+
+    let bestScore = -Infinity, targetP = null;
+    for (const tid in this.players) {
+      if (tid === p.id) continue;
+      const score = this.scoreTarget(p, this.players[tid]);
+      if (score > bestScore) { bestScore = score; targetP = this.players[tid]; }
+    }
+
+    let moveTarget = null;
+    if (p.archetype === 'HUNTER') {
+      if (targetP) moveTarget = targetP.blobs[0];
+      else {
+        let cDist = Infinity;
+        for (const fid in this.foods) {
+          const f = this.foods[fid], d = Math.hypot(b.x-f.x, b.z-f.z);
+          if (d < cDist) { cDist = d; moveTarget = f; }
+        }
+      }
+    } else if (p.archetype === 'FARMER') {
+        let cDist = Infinity;
+        for (const fid in this.foods) {
+          const f = this.foods[fid], d = Math.hypot(b.x-f.x, b.z-f.z);
+          if (d < cDist) { cDist = d; moveTarget = f; }
+        }
+        const threat = Object.values(this.players).find(tp => tp.id !== p.id && tp.blobs && tp.blobs[0] && Math.hypot(b.x-tp.blobs[0].x, b.z-tp.blobs[0].z) < 250 && tp.score > totalMass);
+        if (threat) {
+          const dx = b.x - threat.blobs[0].x, dz = b.z - threat.blobs[0].z, l = Math.hypot(dx, dz) || 1;
+          p.input = { dx: dx/l, dz: dz/l }; return;
+        }
+    } else if (p.archetype === 'DEFENDER') {
+      const waypoints = [{x:0,z:0}, {x:200,z:0}, {x:0,z:200}];
+      p.wpIdx = p.wpIdx || 0;
+      if (Math.hypot(b.x-waypoints[p.wpIdx].x, b.z-waypoints[p.wpIdx].z) < 50) p.wpIdx = (p.wpIdx+1)%3;
+      moveTarget = waypoints[p.wpIdx];
+    } else if (p.archetype === 'GHOST') {
+        if (targetP) {
+          moveTarget = targetP.blobs[0];
+          if (Date.now() - (p.lastGS||0) > 10000) { this.handleSplit(p); p.lastGS = Date.now(); }
+        }
+    } else if (p.archetype === 'APEX') {
+      if (targetP && totalMass > 600) moveTarget = targetP.blobs[0];
+    }
+
+    if (moveTarget) {
+      const dx = moveTarget.x - b.x, dz = moveTarget.z - b.z, l = Math.hypot(dx, dz) || 1;
+      p.input = { dx: dx/l, dz: dz/l };
+    }
   }
-  if (!p.isBot) io.to(p.id).emit('virusHit', {x:b.x, z:b.z});
-}
 
-function handleSplit(p) {
-  if (Date.now() - p.lastSplit < 500) return;
-  const canSplit = p.blobs.filter(b => b.mass >= MIN_MASS * 2);
-  if (canSplit.length === 0 || p.blobs.length >= MAX_BLOBS) return;
-  p.lastSplit = Date.now();
-  let toAdd = [];
-  for (const b of canSplit) {
-    if (p.blobs.length + toAdd.length >= MAX_BLOBS) break;
-    b.mass /= 2;
-    const dx = p.input?.dx || 1, dz = p.input?.dz || 0;
-    toAdd.push({
-      id: `${p.id}_${Date.now()}_${Math.random()}`,
-      x: b.x, z: b.z, mass: b.mass,
-      vx: dx * SPLIT_SPEED, vz: dz * SPLIT_SPEED
-    });
+  broadcastState() {
+    const ts = Date.now();
+    const worldState = {
+      players: Object.values(this.players).map(p => ({
+          id:p.id, name:p.name, color:p.color, blobs:p.blobs, score:p.score||0, kills:p.kills||0, xp:p.xp||0, team:p.team,
+          shielded: p.shielded, dashing: p.dashing, magnetActive: p.magnetActive, ability: this.abilities.get(p.id)
+      })),
+      leaderboard: Object.values(this.players).sort((a,b)=>b.score-a.score).slice(0,10).map(p=>({id:p.id, name:p.name, mass:Math.floor(p.score)})),
+      foods: this.foods, viruses: this.viruses, decoys: this.decoys
+    };
+    if (this.mode.mode.flagOrb) worldState.flagOrb = this.mode.mode.flagOrb;
+    if (this.mode.mode.zone) worldState.zone = this.mode.mode.zone;
+
+    const wsBuffer = msgpack.encode(worldState);
+    io.to(this.id).emit('world_state', wsBuffer);
   }
-  p.blobs.push(...toAdd);
-  if (!p.isBot) io.to(p.id).emit('splitEffect');
 }
 
-// ─── TICK LOOP ────────────────────────────────────────────────
-let payloadLogTimer = 0;
+const rooms = {
+  ffa: new GameRoom('ffa', FFA),
+  team: new GameRoom('team', TeamArena),
+  br: new GameRoom('br', BattleRoyale)
+};
+
 setInterval(() => {
-  const dt = TICK_MS / 1000;
-  
-  buildSpatialHash();
-  AbilitySystem.tick(AppState, TICK_MS);
-  modeManager.onTick(AppState, TICK_MS);
-
-  for (const pid in players) {
-    const p = players[pid];
-    if (!p.blobs) continue;
-    if (p.isBot) updateBot(p, dt);
-
-    for (const blob of p.blobs) {
-    for (const b of p.blobs) {
-      b.x += (b.vx||0) * dt;
-      b.z += (b.vz||0) * dt;
-      b.vx = (b.vx||0) * 0.87;
-      b.vz = (b.vz||0) * 0.87;
-      b.x = Math.max(-ARENA/2, Math.min(ARENA/2, b.x));
-      b.z = Math.max(-ARENA/2, Math.min(ARENA/2, b.z));
-    }
-
-    if (p.input) {
-      const { dx, dz } = p.input;
-      const totalMass = p.blobs.reduce((s,b)=>s+b.mass,0);
-      const speed = BASE_SPEED * Math.pow(totalMass / p.blobs.length, -0.22);
-      for (const blob of p.blobs) {
-        blob.x += dx * speed * dt;
-        blob.z += dz * speed * dt;
-        blob.x = Math.max(-ARENA/2, Math.min(ARENA/2, blob.x));
-        blob.z = Math.max(-ARENA/2, Math.min(ARENA/2, blob.z));
-      }
-    }
-  }
-
-  checkEating();
-
-  // Network Serialization
-  const ts = Date.now();
-  const worldState = {
-    players: Object.values(players).map(p => ({ 
-        id:p.id, name:p.name, color:p.color, blobs:p.blobs, score:p.score||0, kills:p.kills||0, xp:p.xp||0,
-        shielded: p.shielded, dashing: p.dashing, ability: AppState.abilities.get(p.id)
-    })),
-    leaderboard: Object.values(players).sort((a,b)=>b.score-a.score).slice(0,10).map(p=>({id:p.id, name:p.name, mass:Math.floor(p.score)})),
-    foods, viruses, decoys: AppState.decoys
-  };
-  const wsBuffer = msgpack.encode(worldState);
-
-  payloadLogTimer++;
-  if (payloadLogTimer === 100) {
-      console.log(`Payload Size: ${JSON.stringify(worldState).length} bytes (JSON) vs ${wsBuffer.byteLength} bytes (MsgPack)`);
-      payloadLogTimer = 0;
-  }
-
-  for (const [id, socket] of io.sockets.sockets) {
-    if (!socket.clientState) socket.clientState = { lastSeq: 0 };
-    
-    // Delta-state compression
-    const seqGap = socket.clientState.clientSeq ? (socket.serverSeq - socket.clientState.clientSeq) : 0;
-    if (!socket.clientState.hasFullState || seqGap > 3) {
-      socket.emit('world_state', wsBuffer);
-      socket.clientState.hasFullState = true;
-    } else {
-      // Create delta state (simplified for v2 phase 1: just send players and new foods/viruses if any)
-      const ds = {
-        players: worldState.players,
-        leaderboard: worldState.leaderboard,
-        ts
-      };
-      socket.emit('delta_state', msgpack.encode(ds));
-    }
-    socket.serverSeq = (socket.serverSeq || 0) + 1;
-  }
-
+  for (const rid in rooms) rooms[rid].tick();
 }, TICK_MS);
 
-
-// ─── SOCKET ───────────────────────────────────────────────────
 io.on('connection', socket => {
-  console.log(`+ ${socket.id}`);
-  socket.serverSeq = 0;
-
   socket.on('join', (data) => {
-    let payload;
-    try { payload = msgpack.decode(new Uint8Array(data)); } catch(e) { payload = data; } // Fallback if client isn't msgpack yet
-    const name = payload.name || 'PLAYER';
-    const color = payload.color || '#00ffff';
-    players[socket.id] = {
+    let payload = data;
+    try { if(data instanceof Uint8Array) payload = msgpack.decode(data); } catch(e){}
+    const roomType = payload.mode || 'ffa';
+    const room = rooms[roomType];
+    if (!room) return;
+    
+    socket.join(roomType);
+    socket.roomType = roomType;
+    
+    const p = {
       id: socket.id, isBot: false,
-      name: name.toUpperCase().slice(0,16),
-      color: color,
-      blobs: [{ id:`${socket.id}_r${Date.now()}`, x:rndArena(), z:rndArena(), vx:0, vz:0, mass:MIN_MASS }],
-      score:0, kills:0, streak:0, xp:0, lastSplit:0, input:{ dx:0, dz:0 },
+      name: (payload.name || 'PLAYER').toUpperCase().slice(0,16),
+      color: payload.color || '#00ffff',
+      blobs: [{ id: `${socket.id}_0`, x: room.rndArena(), z: room.rndArena(), vx: 0, vz: 0, mass: 100 }],
+      score: 0, kills: 0, streak: 0, xp: 0, lastSplit: 0, input: { dx:0, dz:0 },
       activeAbility: payload.ability || 'SHIELD'
     };
-    AppState.abilities.set(socket.id, { ability: payload.ability || 'SHIELD', remainingMs: 0, active: false, activeDuration: 0 });
-    socket.emit('init', msgpack.encode({ id:socket.id, arenaSize:ARENA }));
+    room.players[socket.id] = p;
+    room.abilities.set(socket.id, { ability: p.activeAbility, remainingMs: 0, active: false, activeDuration: 0 });
+    room.mode.onPlayerJoin(p, room);
   });
 
-  socket.on('input', (data) => {
-    let payload;
-    try { payload = msgpack.decode(new Uint8Array(data)); } catch(e) { payload = data; }
-    const p = players[socket.id];
+  socket.on('input', data => {
+    const room = rooms[socket.roomType];
+    if (!room) return;
+    const p = room.players[socket.id];
     if (!p) return;
-    p.input = { dx: Math.max(-1,Math.min(1,payload.dx||0)), dz: Math.max(-1,Math.min(1,payload.dz||0)) };
-    if (socket.clientState) socket.clientState.clientSeq = payload.seq;
+    try {
+      const pkt = msgpack.decode(new Uint8Array(data));
+      p.input = { dx: pkt.dx, dz: pkt.dz };
+    } catch(e){}
   });
 
   socket.on('ability', () => {
-    if (AbilitySystem.tryActivate(socket.id, AppState)) {
-        const p = players[socket.id];
-        const ability = AppState.abilities.get(socket.id).ability;
-        io.emit('ability_event', { playerId: socket.id, ability, ts: Date.now() });
-    }
-  });
-
-  socket.on('split', () => { if (players[socket.id]) handleSplit(players[socket.id]); });
-  
-  socket.on('boost', () => {
-    const p = players[socket.id];
-    if (!p || !p.blobs) return;
-    for (const blob of p.blobs) {
-      if (blob.mass < MIN_MASS + BOOST_MASS_COST) continue;
-      blob.mass -= BOOST_MASS_COST;
-      const dx = p.input?.dx || 0, dz = p.input?.dz || 0;
-      const len = Math.hypot(dx, dz) || 1;
-      blob.vx = (dx/len) * BOOST_THRUST;
-      blob.vz = (dz/len) * BOOST_THRUST;
-    }
-    socket.emit('feedbackBoost');
-  });
-
-  socket.on('respawn', (data) => {
-    let payload;
-    try { payload = msgpack.decode(new Uint8Array(data)); } catch(e) { payload = data; }
-    players[socket.id] = {
-      id: socket.id, isBot: false,
-      name: (payload.name||'PLAYER').toUpperCase().slice(0,16),
-      color: payload.color||'#00ffff',
-      blobs: [{ id:`${socket.id}_r${Date.now()}`, x:rndArena(), z:rndArena(), vx:0, vz:0, mass:MIN_MASS }],
-      score:0, kills:0, streak:0, xp:0, lastSplit:0, input:{ dx:0, dz:0 }
+    const room = rooms[socket.roomType];
+    if (!room) return;
+    const appState = {
+        players: room.players, foods: room.foods, viruses: room.viruses,
+        abilities: room.abilities, decoys: room.decoys,
+        getNearbyCells: (x, z) => room.getNearbyCells(x, z)
     };
-    socket.emit('respawned', msgpack.encode({ id: socket.id }));
-    socket.clientState.hasFullState = false; // Force full state next tick
+    if (AbilitySystem.tryActivate(socket.id, appState)) {
+        io.to(socket.roomType).emit('ability_event', { playerId: socket.id, ability: room.abilities.get(socket.id).ability, ts: Date.now() });
+    }
+  });
+
+  socket.on('split', () => {
+     const room = rooms[socket.roomType];
+     if (room && room.players[socket.id]) room.handleSplit(room.players[socket.id]);
   });
 
   socket.on('disconnect', () => {
-    delete players[socket.id];
-    console.log(`- ${socket.id}`);
+    const room = rooms[socket.roomType];
+    if (room) room.removePlayer(socket.id);
   });
 });
 
-const PORT = process.env.PORT || 3000;
-// ─── TICK LOOP ───────────────────────────────────────────────
-setInterval(() => {
-  const humanCount = Object.values(players).filter(p => !p.isBot).length;
-  const targetBotCount = Math.max(5, 15 - humanCount);
-  const currentBots = Object.values(players).filter(p => p.isBot);
-  
-  if (currentBots.length < targetBotCount) {
-    addBot();
-  } else if (currentBots.length > targetBotCount) {
-    const lowest = currentBots.sort((a,b) => a.score - b.score)[0];
-    if (lowest) {
-      delete players[lowest.id];
-      AppState.abilities.delete(lowest.id);
-    }
-  }
-}, 10000);
-
-server.listen(PORT, () => console.log(`\n🎮 BLOBZ.IO v2 → http://localhost:${PORT}\n`));
+server.listen(3000, () => console.log('🎮 BLOBZ.IO v2 → http://localhost:3000'));

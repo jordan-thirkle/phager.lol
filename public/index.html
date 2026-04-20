@@ -1,143 +1,154 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BLOBZ.IO — 3D Multiplayer Growth Game</title>
-<meta name="description" content="Eat, grow, dominate. 3D multiplayer .io game. Vibe Jam 2026.">
-<script async src="https://vibej.am/2026/widget.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<title>BLOBZ.IO V2 — Vibe Jam 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://code.playcanvas.com/playcanvas-stable.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@msgpack/msgpack@3.0.0-beta2/dist.browser/msgpack.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{overflow:hidden;background:#030310;font-family:'Orbitron',monospace;user-select:none}
-#c{width:100vw;height:100vh;display:block}
+body{margin:0;overflow:hidden;background:#020207;color:#fff;font-family:'Inter',sans-serif;user-select:none}
+canvas{display:block;width:100vw;height:100vh}
+#start{position:fixed;inset:0;background:radial-gradient(circle at center, rgba(10,20,50,0.9), rgba(2,2,8,1));display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
+#startTitle{font-family:'Orbitron';font-size:80px;font-weight:900;letter-spacing:10px;margin-bottom:10px;text-shadow:0 0 30px rgba(0,255,255,0.4)}
+#startTitle span{color:#0ff;text-shadow:0 0 20px #0ff}
+#nameInput{background:rgba(0,0,0,0.5);border:2px solid rgba(0,255,255,0.3);padding:15px 30px;font-family:'Orbitron';font-size:20px;color:#fff;text-align:center;width:300px;border-radius:12px;margin-bottom:20px;outline:none;transition:0.3s}
+#nameInput:focus{border-color:#0ff;box-shadow:0 0 20px rgba(0,255,255,0.2)}
+button{background:#0ff;border:none;padding:16px 40px;font-family:'Orbitron';font-weight:900;font-size:18px;color:#000;border-radius:12px;cursor:pointer;transition:0.2s;letter-spacing:2px}
+button:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(0,255,255,0.6)}
+#hiwmBtn{background:transparent;border:2px solid #0ff;color:#0ff;margin-left:15px}
 
-/* ── START ── */
-#start{position:fixed;inset:0;background:radial-gradient(ellipse at center,#0a0a2a 0%,#030310 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
-#start h1{font-size:clamp(52px,11vw,110px);font-weight:900;letter-spacing:6px;background:linear-gradient(135deg,#00ffff,#ff00ff,#ffff00,#00ffff);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gradShift 4s linear infinite,pulse 2s ease-in-out infinite}
-@keyframes gradShift{to{background-position:200% 0}}
-@keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.4)}}
-.tagline{color:#ffffff44;font-size:13px;letter-spacing:5px;margin:6px 0 44px;text-transform:uppercase}
-#nameInput{background:rgba(0,255,255,0.07);border:2px solid rgba(0,255,255,0.4);border-radius:12px;color:#fff;font-family:'Orbitron',monospace;font-size:18px;padding:14px 28px;text-align:center;outline:none;width:min(340px,82vw);margin-bottom:14px;transition:all .3s}
-#nameInput:focus{border-color:#00ffff;box-shadow:0 0 30px rgba(0,255,255,0.25)}
-#playBtn{background:linear-gradient(135deg,#00ffff,#ff00ff);border:none;border-radius:12px;color:#000;font-family:'Orbitron',monospace;font-size:18px;font-weight:900;padding:16px 70px;cursor:pointer;letter-spacing:3px;transition:transform .2s,box-shadow .3s;margin-bottom:32px}
-#playBtn:hover{transform:scale(1.07);box-shadow:0 0 50px rgba(0,255,255,0.45)}
-.hints{color:#ffffff30;font-size:11px;letter-spacing:2px;text-align:center;line-height:2.2}
-.stat-row{display:flex;gap:32px;margin-bottom:36px}
-.stat-box{background:rgba(0,255,255,0.07);border:1px solid rgba(0,255,255,0.15);border-radius:10px;padding:12px 22px;text-align:center}
-.stat-box .sv{font-size:22px;font-weight:700;color:#00ffff}
-.stat-box .sl{font-size:10px;color:#ffffff55;letter-spacing:2px;margin-top:2px}
+/* Mode Select */
+#modeSelect { display: flex; gap: 20px; margin: 20px 0; }
+.mode-card {
+  width: 160px; padding: 15px; border: 1px solid rgba(0, 255, 255, 0.2);
+  background: rgba(0, 20, 40, 0.6); cursor: pointer; transition: 0.3s;
+  text-align: center; border-radius: 8px;
+}
+.mode-card:hover { border-color: #0ff; box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); transform: translateY(-5px); }
+.mode-card.active { border-color: #0ff; background: rgba(0, 40, 80, 0.8); box-shadow: 0 0 20px rgba(0, 255, 255, 0.5); }
+.mode-name { font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #0ff; font-family:'Orbitron'; }
+.mode-desc { font-size: 10px; color: #ccc; margin-bottom: 10px; line-height: 1.3; }
+.mode-callout { font-size: 9px; color: #ffff00; text-transform: uppercase; letter-spacing: 1px; }
+#startButtons { display: flex; gap: 10px; }
 
-/* ── DEAD ── */
-#dead{position:fixed;inset:0;background:rgba(3,3,16,0.93);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100}
-#dead h2{font-size:72px;color:#ff0044;font-weight:900;text-shadow:0 0 60px #ff004488;animation:deathPulse 1s ease-in-out infinite}
-@keyframes deathPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-#dead .dSub{color:#ffffff66;font-size:14px;letter-spacing:3px;margin:10px 0 14px}
-#dead .dStats{display:flex;gap:24px;margin-bottom:36px}
-#dead .dStat{background:rgba(255,0,68,0.1);border:1px solid rgba(255,0,68,0.3);border-radius:8px;padding:10px 20px;text-align:center}
-#dead .dStat .dv{font-size:28px;font-weight:700;color:#ff4488}
-#dead .dStat .dl{font-size:10px;color:#ffffff44;letter-spacing:2px}
-#respawnBtn{background:linear-gradient(135deg,#ff0044,#ff00ff);border:none;border-radius:12px;color:#fff;font-family:'Orbitron',monospace;font-size:16px;font-weight:900;padding:14px 56px;cursor:pointer;letter-spacing:3px;transition:transform .2s}
-#respawnBtn:hover{transform:scale(1.06)}
+#startStats{display:none;margin-top:40px;gap:30px}
+.ss-item{font-family:'Orbitron';font-size:12px;color:rgba(255,255,255,0.5);letter-spacing:2px}
+.ss-item span{color:#fff;display:block;font-size:24px;font-weight:900;margin-top:5px}
 
-/* ── HUD ── */
-#hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none}
-#massDisplay{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);font-size:28px;font-weight:900;text-shadow:0 0 20px currentColor;letter-spacing:2px}
-#xpBarWrap{position:fixed;bottom:52px;left:50%;transform:translateX(-50%);width:280px}
-#xpLabel{display:flex;justify-content:space-between;font-size:10px;color:#ffffff55;letter-spacing:2px;margin-bottom:4px}
-#xpBarBg{background:rgba(255,255,255,0.08);border-radius:20px;height:8px;overflow:hidden}
-#xpBar{height:100%;border-radius:20px;background:linear-gradient(90deg,#00ffff,#ff00ff);transition:width .5s ease;width:0%}
-#levelBadge{position:fixed;bottom:42px;left:calc(50% + 150px);background:linear-gradient(135deg,#00ffff,#ff00ff);color:#000;font-size:10px;font-weight:900;padding:4px 10px;border-radius:20px;letter-spacing:1px}
-
-/* Leaderboard */
-#lb{position:fixed;top:20px;right:20px;background:rgba(0,0,20,0.75);border:1px solid rgba(0,255,255,0.18);border-radius:12px;padding:14px 18px;min-width:210px;backdrop-filter:blur(12px)}
-#lb h3{color:#00ffff;font-size:9px;letter-spacing:4px;margin-bottom:10px;text-transform:uppercase}
-.lbe{display:flex;justify-content:space-between;gap:12px;font-size:11px;padding:3px 0;color:#ffffffaa;transition:color .3s}
-.lbe.me{color:#ffff00;text-shadow:0 0 8px #ffff00}
-.lbe .lbn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}
-
-/* Minimap */
-#mmWrap{position:fixed;bottom:20px;right:20px;border:1px solid rgba(0,255,255,0.2);border-radius:10px;overflow:hidden;backdrop-filter:blur(8px)}
-
-/* Kill feed */
-#kf{position:fixed;top:20px;left:20px;max-width:280px}
-.km{background:rgba(0,0,20,0.85);border-left:3px solid #ff00ff;color:#fff;font-size:11px;padding:5px 12px;margin-bottom:5px;border-radius:0 6px 6px 0;animation:slideIn .25s ease;letter-spacing:1px}
-@keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
-
-/* Streak popup */
-#streakPopup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;text-align:center;z-index:50}
-.streakAnim{font-size:clamp(28px,5vw,52px);font-weight:900;text-shadow:0 0 40px currentColor;animation:streakPop 1.6s ease forwards}
-@keyframes streakPop{0%{opacity:0;transform:scale(0.4) translateY(20px)}20%{opacity:1;transform:scale(1.15) translateY(-5px)}40%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(0.8) translateY(-30px)}}
-
-/* XP flash */
-#xpFlash{position:fixed;top:40%;left:50%;transform:translateX(-50%);pointer-events:none;font-size:22px;font-weight:700;color:#ffff00;text-shadow:0 0 20px #ffff00;opacity:0;transition:opacity .1s}
-
-/* Controls */
-#ctrl{position:fixed;bottom:20px;left:20px;color:#ffffff33;font-size:10px;letter-spacing:1px;line-height:2.2}
-
-/* Name tags */
+#hud{position:fixed;inset:0;pointer-events:none;display:none}
+#lb{position:fixed;top:20px;right:20px;background:rgba(0,0,10,0.6);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);padding:15px;width:200px;border-radius:12px}
+#lbTitle{font-family:'Orbitron';font-weight:700;font-size:14px;color:#0ff;margin-bottom:10px;letter-spacing:2px}
+.lbe{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;color:#ddd}
+.lbe.me{color:#0ff;font-weight:700}
+#massDisplay{position:fixed;bottom:30px;left:30px;font-family:'Orbitron';font-size:32px;font-weight:900;color:#fff;text-shadow:0 0 15px rgba(255,255,255,0.3)}
+#xpBar{position:fixed;bottom:0;left:0;width:100%;height:6px;background:rgba(255,255,255,0.1)}
+#xpFill{height:100%;background:#0ff;width:0%;transition:width 0.3s}
+#kf{position:fixed;bottom:100px;right:20px;width:240px;display:flex;flex-direction:column-reverse;gap:5px}
+.kfe{background:rgba(0,0,0,0.6);border-right:4px solid #0ff;padding:8px 12px;font-size:11px;font-weight:700;animation:kfIn 0.3s ease-out}
+@keyframes kfIn{from{transform:translateX(50px);opacity:0}to{transform:translateX(0);opacity:1}}
+#streakPopup{position:fixed;top:150px;left:50%;transform:translateX(-50%);font-family:'Orbitron';font-size:40px;font-weight:900;pointer-events:none;z-index:20}
+#xpFlash{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron';font-size:20px;font-weight:900;color:#0ff;pointer-events:none;z-index:20}
+#ctrl{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(255,255,255,0.4);text-align:center;letter-spacing:2px}
+#dead{position:fixed;inset:0;background:rgba(10,0,0,0.9);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200}
+#killedByMsg{font-family:'Orbitron';font-size:24px;margin-bottom:30px;color:#ff0044;letter-spacing:4px}
 #nametags{position:fixed;inset:0;pointer-events:none;z-index:5}
 .ntag{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font-size:11px;font-weight:700;letter-spacing:1px;text-shadow:0 0 8px currentColor;padding:2px 7px;background:rgba(0,0,0,0.4);border-radius:4px;pointer-events:none}
+
+/* Ability HUD */
+#abilityHUD {
+  position: fixed; bottom: 40px; right: 230px;
+  width: 80px; height: 100px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: auto; z-index: 15;
+}
+#abilityCanvas { width: 64px; height: 64px; }
+.ability-label { font-size: 10px; color: #ffffff55; margin-top: 5px; letter-spacing: 2px; }
+#abilityHUD.ready { animation: abilityPulse 1s ease-in-out infinite; }
+@keyframes abilityPulse {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); }
+  50% { filter: drop-shadow(0 0 15px rgba(255,255,255,0.6)); }
+}
+#abilityHUD.active #abilityCanvas { border-radius: 50%; box-shadow: 0 0 20px #fff; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <div id="start">
-  <h1>BLOBZ.IO</h1>
-  <p class="tagline">3D Multiplayer Growth Game · Vibe Jam 2026</p>
-  <div class="stat-row" id="startStats" style="display:none">
-    <div class="stat-box"><div class="sv" id="ss_best">0</div><div class="sl">BEST MASS</div></div>
-    <div class="stat-box"><div class="sv" id="ss_kills">0</div><div class="sl">TOTAL KILLS</div></div>
-    <div class="stat-box"><div class="sv" id="ss_games">0</div><div class="sl">GAMES</div></div>
-  </div>
-  <input id="nameInput" type="text" placeholder="Enter your name..." maxlength="16" autocomplete="off">
-  <div style="display:flex;gap:15px;margin-bottom:32px;">
-    <button id="playBtn" onclick="startGame()" style="margin-bottom:0;">▶ PLAY NOW</button>
-    <button id="hiwmBtn" onclick="window.openHowItWasMade && window.openHowItWasMade()" style="background:transparent;border:2px solid #00ffff;border-radius:12px;color:#00ffff;font-family:'Orbitron',monospace;font-size:16px;font-weight:700;padding:16px 30px;cursor:pointer;letter-spacing:2px;transition:all .2s;">HOW IT WAS MADE</button>
-  </div>
-  <div class="hints">🖱 MOUSE — MOVE &nbsp;|&nbsp; SPACE — SPLIT &nbsp;|&nbsp; W — BOOST<br>EAT SMALLER BLOBS · AVOID BIGGER ONES</div>
-</div>
-
-<div id="dead">
-  <h2>DEVOURED</h2>
-  <p class="dSub" id="killedByMsg">YOU WERE ELIMINATED</p>
-  <div class="dStats">
-    <div class="dStat"><div class="dv" id="d_mass">0</div><div class="dl">PEAK MASS</div></div>
-    <div class="dStat"><div class="dv" id="d_kills">0</div><div class="dl">KILLS</div></div>
-    <div class="dStat"><div class="dv" id="d_xp">0</div><div class="dl">XP EARNED</div></div>
-  </div>
-  <button id="respawnBtn" onclick="respawn()">↺ RESPAWN</button>
+    <div id="startTitle">BLOBZ.IO <span>V2</span></div>
+    <input type="text" id="nameInput" placeholder="ENTER NAME..." maxlength="16">
+    <div id="modeSelect">
+      <div class="mode-card active" onclick="selectMode('ffa', this)">
+        <div class="mode-name">FREE FOR ALL</div>
+        <div class="mode-desc">Standard survival. Eat or be eaten.</div>
+        <div class="mode-callout">KING OF THE HILL</div>
+      </div>
+      <div class="mode-card" onclick="selectMode('team', this)">
+        <div class="mode-name">TEAM ARENA</div>
+        <div class="mode-desc">Red vs Blue. Capture the Flag Orb.</div>
+        <div class="mode-callout">TEAMWORK REQUIRED</div>
+      </div>
+      <div class="mode-card" onclick="selectMode('br', this)">
+        <div class="mode-name">BATTLE ROYALE</div>
+        <div class="mode-desc">Last blob standing. Zone shrinks.</div>
+        <div class="mode-callout">SURVIVE THE STORM</div>
+      </div>
+    </div>
+    <div id="startButtons">
+        <button id="playBtn" onclick="window.startGame()">PLAY NOW</button>
+        <button id="hiwmBtn" onclick="window.openHowItWasMade && window.openHowItWasMade()">HOW IT WAS MADE</button>
+    </div>
+    <div id="startStats">
+      <div class="ss-item">BEST: <span id="ss_best">0</span></div>
+      <div class="ss-item">KILLS: <span id="ss_kills">0</span></div>
+      <div class="ss-item">GAMES: <span id="ss_games">0</span></div>
+    </div>
 </div>
 
 <div id="hud">
-  <div id="devMenu" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,20,0.8);border:1px solid rgba(0,255,255,0.3);padding:10px 20px;border-radius:8px;color:#fff;font-size:11px;display:flex;gap:20px;z-index:20;backdrop-filter:blur(5px)">
-    <div>FPS: <span id="fpsCount" style="color:#0f0;font-weight:bold">60</span></div>
-    <div>PING: <span id="pingCount" style="color:#0f0;font-weight:bold">--</span>ms</div>
-    <div><label><input type="checkbox" id="chkGlow" checked> Glow</label></div>
-    <div><label><input type="checkbox" id="chkGrid" checked> Grid</label></div>
-  </div>
-  <div id="massDisplay">●</div>
-  <div id="xpBarWrap">
-    <div id="xpLabel"><span id="xpLvl">LVL 1 · SPAWN</span><span id="xpNext">0 / 200</span></div>
-    <div id="xpBarBg"><div id="xpBar"></div></div>
-  </div>
-  <div id="levelBadge">LV1</div>
-  <div id="lb"><h3>Leaderboard</h3><div id="lbList"></div></div>
-  <div id="mmWrap"><canvas id="mm" width="140" height="140"></canvas></div>
+  <div id="lb"><div id="lbTitle">LEADERBOARD</div><div id="lbList"></div></div>
+  <div id="massDisplay">● 0</div>
+  <div id="xpBar"><div id="xpFill"></div></div>
   <div id="kf"></div>
   <div id="streakPopup"></div>
   <div id="xpFlash"></div>
-  <div id="ctrl">🖱 MOUSE or WASD — MOVE<br>SPACE — SPLIT<br>W / SHIFT — BOOST</div>
+  <div id="ctrl">🖱 MOUSE or WASD — MOVE<br>SPACE — SPLIT<br>W / SHIFT — BOOST<br>Q — ABILITY</div>
   <div id="nametags"></div>
+  <div id="abilityHUD">
+    <canvas id="abilityCanvas" width="64" height="64"></canvas>
+    <div class="ability-label">Q ABILITY</div>
+  </div>
+</div>
+
+<div id="dead">
+  <div id="killedByMsg">DEVOURED</div>
+  <div id="startStats" style="display:flex;margin-bottom:40px;margin-top:0">
+    <div class="ss-item">MASS: <span id="d_mass">0</span></div>
+    <div class="ss-item">KILLS: <span id="d_kills">0</span></div>
+    <div class="ss-item">XP: <span id="d_xp">0</span></div>
+  </div>
+  <button onclick="window.respawn()">RESPAWN</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="https://code.playcanvas.com/playcanvas-stable.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@msgpack/msgpack/dist.min.js"></script>
-<script src="/audio.js"></script>
 <script src="/skins.js"></script>
+<script src="/audio.js"></script>
 <script src="/particles.js"></script>
+<script src="/src/camera.js"></script>
+<script src="/src/hud.js"></script>
+<script src="/src/minimap.js"></script>
+<script src="/src/input.js"></script>
 <script src="/src/howItWasMade.js"></script>
 <script src="/game.js"></script>
+<script>
+  let selectedMode = 'ffa';
+  function selectMode(mode, el) {
+    selectedMode = mode;
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  }
+</script>
 </body>
 </html>
