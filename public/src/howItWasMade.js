@@ -107,20 +107,26 @@ function initHowItWasMade() {
             ]
         },
         {
-            stage: 8, title: "Phase 2: Ability System & Visual Polish", status: "in-progress",
-            prompt: "You are now executing Phase 2...",
+            stage: 8, title: 'Phase 2: Ability System & Visual Polish', status: 'complete',
+            prompt: 'Implemented ability system and visual polish.',
             built: [
-                "AbilitySystem.js with server-side cooldown enforcement",
-                "SHIELD, MAGNET, DASH, DECOY abilities",
-                "Radial cooldown HUD arc",
-                "4 new skin patterns: Plasma, Circuit, Glitch, Void",
-                "5 new audio profiles (choir, wobble, crack, jitter, fanfare)",
-                "Particle pool expanded to 600 entities + 4 new effect profiles"
+                'Active Abilities: Shield, Magnet, Dash, Decoy',
+                'Radial Cooldown HUD Integration',
+                'Procedural Skins: Plasma, Circuit, Glitch, Void',
+                'Web Audio API Synthesis Engine',
+                'Particle Pool Expansion (600 entities)'
             ]
         },
         {
-            stage: 9, title: "Phase 3: Bot AI v2 & Game Modes", status: "in-progress",
-            prompt: "Pending...", built: []
+            stage: 9, title: 'Phase 3: Bot AI v2 & Game Modes', status: 'in-progress',
+            prompt: 'Developing advanced bot AI and new game modes.',
+            built: [
+                '5 Bot Archetypes: Hunter, Farmer, Defender, Ghost, Apex',
+                'Coordinate Pack Mode for Hunter bots',
+                'Strategy Pattern ModeManager',
+                'FFA, Team Arena, and Battle Royale Modes',
+                'Dynamic Zone Shrinking logic'
+            ]
         },
         {
             stage: 10, title: "Phase 4: Mobile, Meta & Final Polish", status: "in-progress",
