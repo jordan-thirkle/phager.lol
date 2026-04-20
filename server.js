@@ -499,6 +499,7 @@ io.on('connection', socket => {
     room.players[socket.id] = p;
     room.abilities.set(socket.id, { ability: p.activeAbility, remainingMs: 0, active: false, activeDuration: 0 });
     room.mode.onPlayerJoin(p, room);
+    socket.emit('init', msgpack.encode({ id: socket.id }));
   });
 
   socket.on('input', data => {

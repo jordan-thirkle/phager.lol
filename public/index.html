@@ -171,12 +171,12 @@ button:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(0,255,255,0.6)}
         <div class="mode-callout">SURVIVE THE STORM</div>
       </div>
     </div>
-    <div id="startButtons">
-        <button id="playBtn" onclick="window.startGame()">PLAY NOW</button>
-        <button id="customizeBtn" onclick="HudSystem.openCustomize()">CUSTOMIZE</button>
+      <div class="menu-actions">
+        <button id="playBtn" class="btn primary" onclick="startGame()">PLAY NOW</button>
+        <button class="btn secondary" onclick="HudSystem.openCustomize()">CUSTOMIZE</button>
         <button id="settingsBtn" onclick="HudSystem.openSettings()">SETTINGS</button>
         <button id="hiwmBtn" onclick="window.openHowItWasMade && window.openHowItWasMade()">HOW IT WAS MADE</button>
-    </div>
+      </div>
     <div id="startStats">
       <div class="ss-item">BEST: <span id="ss_best">0</span></div>
       <div class="ss-item">KILLS: <span id="ss_kills">0</span></div>
