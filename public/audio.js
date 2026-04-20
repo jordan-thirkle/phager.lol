@@ -1,9 +1,14 @@
 // ─── BLOBZ.IO Audio Engine (Web Audio API, no downloads) ───
 const Audio = (() => {
   let ctx = null;
+  let masterGain = null;
+
   function init() {
     if (ctx) return;
     ctx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = 0.8;
+    masterGain.connect(ctx.destination);
   }
   function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
 
@@ -13,7 +18,7 @@ const Audio = (() => {
     const gain = ctx.createGain();
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass'; filter.frequency.value = 2000;
-    osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
     osc.type = type;
     const t = ctx.currentTime + delay;
     osc.frequency.setValueAtTime(freq, t);
@@ -62,7 +67,7 @@ const Audio = (() => {
       [220, 440, 880].forEach(f => {
         const osc = ctx.createOscillator();
         const g = ctx.createGain();
-        osc.connect(g); g.connect(ctx.destination);
+        osc.connect(g); g.connect(masterGain);
         osc.type = 'sine'; osc.frequency.setValueAtTime(f, t);
         g.gain.setValueAtTime(0, t);
         g.gain.linearRampToValueAtTime(0.15, t + 0.3);
@@ -88,7 +93,7 @@ const Audio = (() => {
       lfo.connect(lfoGain); lfoGain.connect(filter.frequency);
       
       const g = ctx.createGain();
-      source.connect(filter); filter.connect(g); g.connect(ctx.destination);
+      source.connect(filter); filter.connect(g); g.connect(masterGain);
       g.gain.setValueAtTime(0.3, t); g.gain.linearRampToValueAtTime(0, t + 0.4);
       lfo.start(t); source.start(t); lfo.stop(t + 0.45); source.stop(t + 0.45);
     },
@@ -96,7 +101,7 @@ const Audio = (() => {
       const t = ctx.currentTime;
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
-      osc.connect(g); g.connect(ctx.destination);
+      osc.connect(g); g.connect(masterGain);
       osc.type = 'square';
       osc.frequency.setValueAtTime(800, t);
       osc.frequency.exponentialRampToValueAtTime(200, t + 0.05);
@@ -108,7 +113,7 @@ const Audio = (() => {
       const t = ctx.currentTime;
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
-      osc.connect(g); g.connect(ctx.destination);
+      osc.connect(g); g.connect(masterGain);
       osc.type = 'square';
       g.gain.setValueAtTime(0.2, t); g.gain.linearRampToValueAtTime(0, t + 0.3);
       osc.start(t); osc.stop(t + 0.3);
@@ -122,13 +127,16 @@ const Audio = (() => {
         [262, 294, 330, 392, 440].forEach((f, i) => {
             const osc = ctx.createOscillator();
             const g = ctx.createGain();
-            osc.connect(g); g.connect(ctx.destination);
+            osc.connect(g); g.connect(masterGain);
             osc.type = 'sine'; osc.frequency.setValueAtTime(f, t + i * 0.12);
             g.gain.setValueAtTime(0, t + i * 0.12);
             g.gain.linearRampToValueAtTime(0.2, t + i * 0.12 + 0.1);
             g.gain.linearRampToValueAtTime(0, t + i * 0.12 + 0.5);
             osc.start(t + i * 0.12); osc.stop(t + i * 0.12 + 0.55);
         });
+    },
+    setVolume(v) {
+      if (masterGain) masterGain.gain.setTargetAtTime(v, ctx.currentTime, 0.1);
     }
   };
 })();

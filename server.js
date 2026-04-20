@@ -162,6 +162,10 @@ class GameRoom {
     };
     AbilitySystem.tick(appState, TICK_MS);
     this.mode.onTick(this, TICK_MS);
+    const win = this.mode.checkWinCondition(this);
+    if (win) {
+        io.to(this.id).emit('match_end', win);
+    }
 
     for (const pid in this.players) {
       const p = this.players[pid];
@@ -245,8 +249,11 @@ class GameRoom {
       if (vp && vp.blobs && vp.blobs[e.victimIdx]) {
         vp.blobs.splice(e.victimIdx, 1);
         if (vp.blobs.length === 0) {
-            if (vp.isBot) { setTimeout(() => this.addBot(), 3000); delete this.players[e.victimPid]; }
-            else io.to(e.victimPid).emit('dead', { killedBy: this.players[e.eaterPid].name });
+            if (vp.isBot) { 
+                setTimeout(() => this.addBot(), 3000); 
+                delete this.players[e.victimPid]; 
+            }
+            else io.to(e.victimPid).emit('dead', { killedBy: this.players[e.eaterPid].name, killerSocketId: e.eaterPid });
         }
       }
     }

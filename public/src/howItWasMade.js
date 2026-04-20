@@ -118,8 +118,8 @@ function initHowItWasMade() {
             ]
         },
         {
-            stage: 9, title: 'Phase 3: Bot AI v2 & Game Modes', status: 'in-progress',
-            prompt: 'Developing advanced bot AI and new game modes.',
+            stage: 9, title: 'Phase 3: Bot AI v2 & Game Modes', status: 'complete',
+            prompt: 'Implemented advanced bot archetypes and multi-mode support.',
             built: [
                 '5 Bot Archetypes: Hunter, Farmer, Defender, Ghost, Apex',
                 'Coordinate Pack Mode for Hunter bots',
@@ -129,34 +129,56 @@ function initHowItWasMade() {
             ]
         },
         {
-            stage: 10, title: "Phase 4: Mobile, Meta & Final Polish", status: "in-progress",
-            prompt: "Pending...", built: []
+            stage: 10, title: 'Phase 4: Mobile, Meta & Final Polish', status: 'complete',
+            prompt: 'Implemented touch controls, meta-progression, and final polish.',
+            built: [
+                'Unified Input System (Keyboard, Mouse, Touch, Gamepad)',
+                'Mobile Virtual Joystick & Action Buttons',
+                'Cinematic Spectator Camera with target switching',
+                'Meta-progression: XP, Levels, 8 Achievements',
+                'Customization Loadout & Settings Panel',
+                'Performance Auto-Scaling (HIGH/MEDIUM/LOW)'
+            ]
+        },
+        {
+            stage: 11, title: "The Finished Game", status: "complete",
+            prompt: "Ship it.",
+            built: [
+                "3 fully verified game modes: FFA, Team Arena, Battle Royale",
+                "4 active abilities with server-authoritative cooldowns",
+                "5 bot archetypes with pack mode flanking",
+                "Mobile touch controls: virtual joystick + tap zones",
+                "Meta-progression: XP, levels, 8 achievements, cosmetic loadout",
+                "Spectator mode with cinematic dolly camera",
+                "Performance auto-scaling: HIGH / MEDIUM / LOW profiles",
+                "Zero external assets. Zero loading screens. Built entirely through human–AI collaboration."
+            ]
         }
     ];
 
     let cardsHtml = '';
     data.forEach(d => {
-        let lis = d.built.map(o => \`<li>\${o}</li>\`).join('');
+        let lis = d.built.map(o => `<li>${o}</li>`).join('');
         let borderStyle = d.status === 'in-progress' ? 'border: 1px dashed rgba(0, 255, 255, 0.5); opacity: 0.55;' : 'border: 1px solid rgba(0, 255, 255, 0.2); opacity: 1;';
         let titleSuffix = d.status === 'in-progress' ? ' [IN PROGRESS]' : '';
         let dotStyle = d.status === 'in-progress' ? '' : 'background: #00BFFF; box-shadow: 0 0 10px #00BFFF;';
         
-        cardsHtml += \`
-            <div class="hiwm-card" style="\${borderStyle}">
-                <div class="hiwm-card-dot" style="position: absolute; left: -36px; top: 20px; width: 10px; height: 10px; border-radius: 50%; background: #555; \${dotStyle}"></div>
-                <div class="hiwm-card-title">\${d.title}\${titleSuffix}</div>
-                <div class="hiwm-prompt">PROMPT USED:\\n\${d.prompt}</div>
-                <div class="hiwm-outputs">WHAT WAS BUILT:<ul>\${lis}</ul></div>
+        cardsHtml += `
+            <div class="hiwm-card" style="${borderStyle}">
+                <div class="hiwm-card-dot" style="position: absolute; left: -36px; top: 20px; width: 10px; height: 10px; border-radius: 50%; background: #555; ${dotStyle}"></div>
+                <div class="hiwm-card-title">${d.title}${titleSuffix}</div>
+                <div class="hiwm-prompt">PROMPT USED:\n${d.prompt}</div>
+                <div class="hiwm-outputs">WHAT WAS BUILT:<ul>${lis}</ul></div>
             </div>
-        \`;
+        `;
     });
 
-    overlay.innerHTML = \`
+    overlay.innerHTML = `
         <div class="hiwm-close" onclick="document.getElementById('hiwm-overlay').classList.remove('show'); setTimeout(() => document.getElementById('hiwm-overlay').style.display='none', 300);">&times;</div>
         <div class="hiwm-title">HOW IT WAS MADE</div>
-        <div class="hiwm-timeline">\${cardsHtml}</div>
-        <div class="hiwm-footer">This game was designed and built entirely through human–AI collaboration. Every system, mechanic, and line of architecture was prompted into existence.</div>
-    \`;
+        <div class="hiwm-timeline">${cardsHtml}</div>
+        <div class="hiwm-footer">BLOBZ.IO was designed and built entirely through human–AI collaboration across 4 development phases. Every system, mechanic, and line of architecture was prompted into existence — from a single jam prototype to a fully-featured multiplayer title.</div>
+    `;
 
     document.body.appendChild(overlay);
 

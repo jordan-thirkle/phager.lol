@@ -70,7 +70,9 @@ function initPC() {
   buildArena(); Particles.init(AppState.app); MinimapSystem.init(); InputSystem.init(AppState);
 
   AppState.app.on('update', dt => { 
-    Particles.update(dt); 
+    if (AppState.perfProfile !== 'LOW') {
+        Particles.update(dt);
+    }
     if(AppState.gameActive) gameLoop(dt); 
   });
   AppState.app.start();
@@ -145,15 +147,16 @@ function gameLoop(dt) {
   AppState.animTime += dt;
   HudSystem.updateFPS(AppState, dt);
 
+  InputSystem.update(dt);
   AppState.sendTimer += dt;
   if (AppState.sendTimer >= 0.05) { 
     AppState.sendTimer = 0; 
-    const dir = InputSystem.getDirection(AppState);
-    const pkt = { dx: dir.dx, dz: dir.dz, seq: AppState.clientSeq++ };
+    const input = InputSystem.InputState;
+    const pkt = { dx: input.dx, dz: input.dz, seq: AppState.clientSeq++ };
     AppState.socket.emit('input', MessagePack.encode(pkt)); 
-    if (AppState.input.split) { AppState.socket.emit('split'); AppState.input.split = false; }
-    if (AppState.input.boost) { AppState.socket.emit('boost'); AppState.input.boost = false; }
-    if (AppState.input.ability) { AppState.socket.emit('ability'); AppState.input.ability = false; }
+    if (input.split) { AppState.socket.emit('split'); }
+    if (input.boost) { AppState.socket.emit('boost'); }
+    if (input.ability) { AppState.socket.emit('ability'); }
   }
 
   const me = AppState.gameState.players.find(p=>p.id===AppState.myId);
@@ -162,6 +165,10 @@ function gameLoop(dt) {
   let totalMass = me.blobs.reduce((s,b)=>s+b.mass,0);
   CameraSystem.update(AppState, dt);
   HudSystem.updateAbilityHUD(AppState);
+
+  if (AppState.spectating && InputSystem.InputState.spectateNext) {
+    cycleSpectator(1);
+  }
 
   // Stats update
   AppState.myStats.peakMass = Math.max(AppState.myStats.peakMass, Math.floor(totalMass));
@@ -173,6 +180,11 @@ function gameLoop(dt) {
     HudSystem.updateXPBar(AppState.myStats.xp); 
     if(diff>0) HudSystem.flashXP(diff); 
   }
+
+  // Achievement: Mass Monster
+  if (totalMass >= 5000) MetaSystem.unlockAchievement(2);
+  // Achievement: Pacifist
+  if (totalMass >= 2000 && AppState.myStats.sessionKills === 0) MetaSystem.unlockAchievement(8);
 
   // Entities Sync
   const seenKeys = new Set();
@@ -198,10 +210,10 @@ function gameLoop(dt) {
       pEnt.ent.setPosition(pEnt.tx, r, pEnt.tz);
       pEnt.ent.setLocalScale(sc, sc, sc);
 
-      if (p.dashing) {
+      if (p.dashing && AppState.perfProfile !== 'LOW') {
           Particles.emitDashTrail(pEnt.tx, r, pEnt.tz, p.color, r);
       }
-      if (p.magnetActive && AppState.animTime % 0.2 < 0.05) {
+      if (p.magnetActive && AppState.animTime % 0.2 < 0.05 && AppState.perfProfile !== 'LOW') {
           Particles.emitMagnetField(pEnt.tx, r, pEnt.tz, p.color);
       }
     }
@@ -343,8 +355,14 @@ function connectSocket() {
     Audio.eatPlayer(); Particles.eatPlayer(x,5,z,color); shake(18);
     AppState.myStats.sessionKills++; 
     HudSystem.showStreak(streak, AppState.myColor); Audio.streak(streak);
+    // Achievement: First Blood
+    MetaSystem.unlockAchievement(1);
   });
-  AppState.socket.on('feedbackBoost', () => { Particles.splitEffect(AppState.cam.x, 5, AppState.cam.z, AppState.myColor); });
+  AppState.socket.on('feedbackBoost', () => { 
+    Particles.splitEffect(AppState.cam.x, 5, AppState.cam.z, AppState.myColor); 
+    AppState.myStats.boostCount = (AppState.myStats.boostCount || 0) + 1;
+    if (AppState.myStats.boostCount >= 50) MetaSystem.unlockAchievement(5);
+  });
   AppState.socket.on('splitEffect', () => { Audio.split(); });
   AppState.socket.on('decoyHit', () => { shake(10); });
 
@@ -375,21 +393,37 @@ function connectSocket() {
     HudSystem.addKill(`${killer} ate ${victim}`);
   });
 
-  AppState.socket.on('virusHit', ({x,z}) => { Particles.virusExplosion(x,20,z); Audio.virusHit(); shake(22); HudSystem.addKill('⚡ VIRUS EXPLOSION!'); });
+  AppState.socket.on('virusHit', ({x,z}) => { 
+    Particles.virusExplosion(x,20,z); Audio.virusHit(); shake(22); 
+    HudSystem.addKill('⚡ VIRUS EXPLOSION!'); 
+    AppState.myStats.virusHits = (AppState.myStats.virusHits || 0) + 1;
+    if (AppState.myStats.virusHits >= 10) MetaSystem.unlockAchievement(4);
+  });
 
-  AppState.socket.on('dead', ({killedBy}) => {
+    AppState.socket.on('dead', ({killedBy, killerSocketId}) => {
     AppState.gameActive = false;
+    AppState.spectating = true;
+    AppState.spectateId = killerSocketId || AppState.gameState.players.sort((a,b)=>b.score-a.score)[0]?.id;
+    
     Audio.die(); shake(40);
     document.getElementById('killedByMsg').textContent = `DEVOURED BY ${(killedBy||'?').toUpperCase()}`;
     document.getElementById('d_mass').textContent = AppState.myStats.peakMass;
     document.getElementById('d_kills').textContent = AppState.myStats.sessionKills;
     document.getElementById('d_xp').textContent = AppState.myStats.xp;
+    
+    // Hide respawn button initially
+    const respawnBtn = document.querySelector('#dead button');
+    if (respawnBtn) {
+        respawnBtn.style.display = 'none';
+        setTimeout(() => respawnBtn.style.display = 'block', 3000);
+    }
+
     document.getElementById('hud').style.display = 'none';
     document.getElementById('dead').style.display = 'flex';
     document.getElementById('nametags').innerHTML = '';
-    LS.set('best', Math.max(LS.get('best'), AppState.myStats.peakMass));
-    LS.set('kills', LS.get('kills') + AppState.myStats.sessionKills);
-    LS.set('games', LS.get('games') + 1);
+    
+    MetaSystem.recordGame({ mass: AppState.myStats.peakMass, kills: AppState.myStats.sessionKills });
+    
     for(const k in AppState.pEnts) AppState.pEnts[k].ent.destroy(); AppState.pEnts={};
   });
 
@@ -397,12 +431,55 @@ function connectSocket() {
     const data = MessagePack.decode(new Uint8Array(buf));
     AppState.myId = data.id; 
     AppState.myStats = { xp:0, kills:0, peakMass:0, sessionKills:0 };
-    AppState.myColor = NEON[Math.floor(Math.random()*NEON.length)];
-    AppState.gameActive = true;
+    AppState.myColor = data.color || NEON[Math.floor(Math.random()*NEON.length)];
+    AppState.spectating = false;
     document.getElementById('dead').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
     Audio.spawn();
   });
+
+  AppState.socket.on('match_end', data => {
+    // Achievement: Team Player
+    if (data.type === 'TEAM_VICTORY' && data.winnerTeam === AppState.localTeam) {
+        let wins = LS.get('teamWins', 0) + 1;
+        LS.set('teamWins', wins);
+        if (wins >= 3) MetaSystem.unlockAchievement(6);
+    }
+    // Achievement: Last Standing
+    if (data.type === 'BATTLE_ROYALE_VICTORY' && data.winner.id === AppState.myId) {
+        MetaSystem.unlockAchievement(7);
+    }
+    // Achievement: Untouchable
+    if (data.type === 'FFA_VICTORY' && data.winner.id === AppState.myId && AppState.myStats.deaths === 0) {
+        MetaSystem.unlockAchievement(3);
+    }
+
+    // Show a global results overlay
+    HudSystem.addKill(`🏆 MATCH END: ${data.winner.name || data.winnerTeam} WON!`);
+  });
+}
+
+function cycleSpectator(dir) {
+    const players = AppState.gameState.players.filter(p => p.blobs && p.blobs.length > 0).sort((a,b)=>b.score-a.score);
+    if (!players.length) return;
+    let idx = players.findIndex(p => p.id === AppState.spectateId);
+    idx = (idx + dir + players.length) % players.length;
+    AppState.spectateId = players[idx].id;
+}
+
+function detectPerformanceProfile() {
+  const start = performance.now();
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  for (let i = 0; i < 200; i++) {
+    ctx.fillStyle = `hsl(${i},50%,50%)`;
+    ctx.fillRect(0, 0, 512, 512);
+  }
+  const elapsed = performance.now() - start;
+  if (elapsed < 8)  return 'HIGH';
+  if (elapsed < 20) return 'MEDIUM';
+  return 'LOW';
 }
 
 // ─── ENTRY POINTS ─────────────────────────────────────────────
@@ -411,6 +488,8 @@ window.startGame = function() {
   LS.set('name', AppState.myName);
   LS.set('games', LS.get('games')+1);
   document.getElementById('start').style.display = 'none';
+  AppState.perfProfile = detectPerformanceProfile();
+  MetaSystem.init();
   Audio.init(); Audio.resume();
   initPC(); connectSocket();
   AppState.socket.emit('join', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
