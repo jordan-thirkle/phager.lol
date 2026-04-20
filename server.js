@@ -6,11 +6,15 @@ const { Server } = require("socket.io");
 const io = new Server(server);
 const msgpack = require('@msgpack/msgpack');
 const AbilitySystem = require('./public/src/abilities/AbilitySystem');
+const ModeManager = require('./public/src/modes/ModeManager');
+const FFA = require('./public/src/modes/FFA');
+
+const modeManager = new ModeManager(FFA);
 
 app.use(express.static('public'));
 
 // ─── CONFIG ───────────────────────────────────────────────────
-const ARENA = 3000;
+const ARENA = modeManager.getArenaSize().x;
 const TICK_MS = 1000 / 20;
 const MIN_MASS = 40;
 const MAX_MASS = 25000;
@@ -408,8 +412,11 @@ function checkEating() {
           if (other.pid === pid) continue;
           const ob = other.blob;
           if (!ob || !b) continue;
-          if (players[other.pid].shielded) continue; // SHIELD counter
-          if (b.mass > ob.mass * 1.12 && Math.hypot(b.x-ob.x, b.z-ob.z) < r * 0.75) {
+          
+          const attacker = p;
+          const target = players[other.pid];
+          
+          if (modeManager.canEat(attacker, target) && Math.hypot(b.x-ob.x, b.z-ob.z) < r * 0.75) {
             b.mass += ob.mass; p.score += ob.mass;
             p.kills++; p.streak++; p.xp += Math.floor(50 + (ob.mass/10));
             eatenBlobs.push({ eaterPid: pid, eaterIdx: i, victimPid: other.pid, victimIdx: other.idx });
@@ -493,6 +500,7 @@ setInterval(() => {
   
   buildSpatialHash();
   AbilitySystem.tick(AppState, TICK_MS);
+  modeManager.onTick(AppState, TICK_MS);
 
   for (const pid in players) {
     const p = players[pid];
@@ -500,13 +508,13 @@ setInterval(() => {
     if (p.isBot) updateBot(p, dt);
 
     for (const blob of p.blobs) {
-      blob.x += (blob.vx||0) * dt;
-      blob.z += (blob.vz||0) * dt;
-      blob.vx = (blob.vx||0) * 0.87;
-      blob.vz = (blob.vz||0) * 0.87;
-      blob.x = Math.max(-ARENA/2, Math.min(ARENA/2, blob.x));
-      blob.z = Math.max(-ARENA/2, Math.min(ARENA/2, blob.z));
-      blob.mass = Math.max(MIN_MASS, blob.mass * MASS_LOSS_RATE);
+    for (const b of p.blobs) {
+      b.x += (b.vx||0) * dt;
+      b.z += (b.vz||0) * dt;
+      b.vx = (b.vx||0) * 0.87;
+      b.vz = (b.vz||0) * 0.87;
+      b.x = Math.max(-ARENA/2, Math.min(ARENA/2, b.x));
+      b.z = Math.max(-ARENA/2, Math.min(ARENA/2, b.z));
     }
 
     if (p.input) {
