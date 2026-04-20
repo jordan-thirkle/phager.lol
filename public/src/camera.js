@@ -1,5 +1,11 @@
 window.CameraSystem = (() => {
+  let orbitAngle = 0;
+
   function update(AppState, dt) {
+    if (AppState.spectating) {
+      updateSpectator(AppState, dt);
+      return;
+    }
     const me = AppState.gameState.players.find(p => p.id === AppState.myId);
     if (!me || !me.blobs || !me.blobs.length) return;
 
