@@ -1,7 +1,7 @@
 // ─── BLOBZ.IO Skin Texture Generator (Canvas 2D → PlayCanvas Texture) ───
 const Skins = (() => {
   const SIZE = 256;
-  const PATTERNS = ['solid','dots','stripes','stars','hexagon','swirl','lightning','checkers'];
+  const PATTERNS = ['solid','dots','stripes','stars','hexagon','swirl','lightning','checkers', 'plasma', 'circuit', 'glitch', 'void'];
 
   function hexToRgb(hex) {
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
@@ -112,8 +112,83 @@ const Skins = (() => {
     ctx.beginPath(); ctx.ellipse(100, 90, 35, 22, -Math.PI/4, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
   }
 
+  function patternPlasma(ctx, color) {
+    const phase = 2.1;
+    const { r, g, b } = hexToRgb(color);
+    // Convert RGB to HSL-ish
+    for (let x = 0; x < SIZE; x += 4) {
+      for (let y = 0; y < SIZE; y += 4) {
+        const v = Math.abs(Math.sin(x * 0.05 + phase) + Math.sin(y * 0.04 + phase * 1.3) + Math.sin((x + y) * 0.03));
+        const offset = v * 30;
+        ctx.fillStyle = `rgb(${Math.min(255, r + offset)}, ${Math.min(255, g + offset)}, ${Math.min(255, b + offset)})`;
+        ctx.fillRect(x, y, 4, 4);
+      }
+    }
+  }
+
+  function patternCircuit(ctx, color) {
+    ctx.strokeStyle = lighter(color, 80);
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 2;
+    const drawLine = (x, y, depth) => {
+      if (depth > 6) return;
+      const len = Math.random() * 40 + 10;
+      const horizontal = Math.random() > 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      const nx = x + (horizontal ? len : 0);
+      const ny = y + (!horizontal ? len : 0);
+      ctx.lineTo(nx, ny);
+      ctx.stroke();
+      
+      // Junction dot
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(nx, ny, 3, 0, Math.PI * 2); ctx.fill();
+      
+      if (Math.random() < 0.4) drawLine(nx, ny, depth + 1);
+      if (Math.random() < 0.4) drawLine(nx, ny, depth + 1);
+    };
+    drawLine(128, 128, 0);
+    for(let i=0; i<5; i++) drawLine(Math.random()*SIZE, Math.random()*SIZE, 2);
+    ctx.globalAlpha = 1;
+  }
+
+  function patternGlitch(ctx, color) {
+    for (let i = 0; i < 40; i++) {
+      const y = Math.floor(Math.random() * SIZE);
+      const h = Math.floor(Math.random() * 4) + 1;
+      const offset = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 16 + 8);
+      try {
+          const data = ctx.getImageData(0, y, SIZE, h);
+          ctx.putImageData(data, offset, y);
+          if (offset > 0) ctx.putImageData(data, offset - SIZE, y);
+          else ctx.putImageData(data, offset + SIZE, y);
+      } catch(e) {}
+    }
+  }
+
+  function patternVoid(ctx, color) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, SIZE, SIZE);
+    const radii = [20, 40, 65, 95, 130, 160];
+    radii.forEach((r, i) => {
+      ctx.beginPath();
+      ctx.arc(128, 128, r, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.7 - (i * 0.1);
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    });
+    ctx.fillStyle = '#fff';
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < 80; i++) {
+      ctx.fillRect(Math.random() * SIZE, Math.random() * SIZE, 1, 1);
+    }
+  }
+
   const drawers = { solid:patternSolid, dots:patternDots, stripes:patternStripes, stars:patternStars,
-    hexagon:patternHexagon, swirl:patternSwirl, lightning:patternLightning, checkers:patternCheckers };
+    hexagon:patternHexagon, swirl:patternSwirl, lightning:patternLightning, checkers:patternCheckers,
+    plasma:patternPlasma, circuit:patternCircuit, glitch:patternGlitch, void:patternVoid };
 
   function patternIndexForId(id) {
     let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;

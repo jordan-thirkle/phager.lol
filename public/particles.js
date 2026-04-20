@@ -1,6 +1,6 @@
 // ─── BLOBZ.IO Particle System ───
 const Particles = (() => {
-  const POOL_SIZE = 300;
+  const POOL_SIZE = 600;
   let app = null;
   const pool = [];
   let time = 0;
@@ -83,5 +83,29 @@ const Particles = (() => {
   function splitEffect(x, y, z, color) { spawn(x,y,z,color,12,150,6,0.3,false); }
   function spawnEffect(x, y, z, color) { spawn(x,y,z,color,20,200,10,0.6,true); }
 
-  return { init, update, eatFood, eatPlayer, virusExplosion, splitEffect, spawnEffect };
+  function emitShieldBreak(x, y, z) {
+    spawn(x, y, z, '#ffffff', 40, 300, 15, 0.6, true);
+  }
+
+  function emitMagnetField(x, y, z, color) {
+    // Spawns particles that move toward center
+    for (let i = 0; i < 20; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 150 + Math.random() * 50;
+        const px = x + Math.cos(angle) * dist;
+        const pz = z + Math.sin(angle) * dist;
+        spawn(px, y, pz, color || '#00BFFF', 1, -80, 5, 0.4, false);
+    }
+  }
+
+  function emitDashTrail(x, y, z, color, radius) {
+    spawn(x, y, z, color, 5, 0, radius * 0.8, 0.35, false);
+  }
+
+  function emitAchievementStars(x, y, z) {
+    spawn(x, y, z, '#FFD700', 25, 300, 4, 1.2, true);
+    // Gravity adjustment for these particles would be needed in update() but for now spawn is enough
+  }
+
+  return { init, update, eatFood, eatPlayer, virusExplosion, splitEffect, spawnEffect, emitShieldBreak, emitMagnetField, emitDashTrail, emitAchievementStars };
 })();

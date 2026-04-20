@@ -56,6 +56,79 @@ const Audio = (() => {
       [0, 60, 120, 180].forEach((d, i) => {
         synth({ freq: 600 - i * 120, type: 'square', duration: 0.15, vol: 0.25, delay: d / 1000 });
       });
+    },
+    playShieldActivate() {
+      const t = ctx.currentTime;
+      [220, 440, 880].forEach(f => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(f, t);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.15, t + 0.3);
+        g.gain.linearRampToValueAtTime(0, t + 0.8);
+        osc.start(t); osc.stop(t + 0.85);
+      });
+    },
+    playMagnetPulse() {
+      const t = ctx.currentTime;
+      const bufferSize = 2048;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      
+      const source = ctx.createBufferSource();
+      source.buffer = buffer; source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass'; filter.frequency.value = 800;
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 4;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 400;
+      lfo.connect(lfoGain); lfoGain.connect(filter.frequency);
+      
+      const g = ctx.createGain();
+      source.connect(filter); filter.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.3, t); g.gain.linearRampToValueAtTime(0, t + 0.4);
+      lfo.start(t); source.start(t); lfo.stop(t + 0.45); source.stop(t + 0.45);
+    },
+    playDashCrack() {
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(800, t);
+      osc.frequency.exponentialRampToValueAtTime(200, t + 0.05);
+      g.gain.setValueAtTime(0.4, t);
+      g.gain.linearRampToValueAtTime(0, t + 0.05);
+      osc.start(t); osc.stop(t + 0.1);
+    },
+    playDecoySpawn() {
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = 'square';
+      g.gain.setValueAtTime(0.2, t); g.gain.linearRampToValueAtTime(0, t + 0.3);
+      osc.start(t); osc.stop(t + 0.3);
+      // Frequency jitter
+      for (let i = 0; i < 15; i++) {
+          osc.frequency.setValueAtTime(150 + Math.random() * 400, t + i * 0.02);
+      }
+    },
+    playAchievementUnlock() {
+        const t = ctx.currentTime;
+        [262, 294, 330, 392, 440].forEach((f, i) => {
+            const osc = ctx.createOscillator();
+            const g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(f, t + i * 0.12);
+            g.gain.setValueAtTime(0, t + i * 0.12);
+            g.gain.linearRampToValueAtTime(0.2, t + i * 0.12 + 0.1);
+            g.gain.linearRampToValueAtTime(0, t + i * 0.12 + 0.5);
+            osc.start(t + i * 0.12); osc.stop(t + i * 0.12 + 0.55);
+        });
     }
   };
 })();

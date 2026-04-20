@@ -83,6 +83,59 @@ window.HudSystem = (() => {
     ).join('');
   }
 
+  function updateAbilityHUD(AppState) {
+    const me = AppState.gameState.players.find(p => p.id === AppState.myId);
+    if (!me || !me.ability) return;
+
+    const canvas = document.getElementById('abilityCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const { remainingMs, active } = me.ability;
+    const cooldownMs = { SHIELD: 18000, MAGNET: 22000, DASH: 12000, DECOY: 25000 }[me.ability.ability] || 10000;
+
+    ctx.clearRect(0, 0, 64, 64);
+    
+    // Draw background circle
+    ctx.beginPath();
+    ctx.arc(32, 32, 28, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,20,0.8)';
+    ctx.fill();
+    ctx.strokeStyle = active ? '#fff' : (me.color || '#0ff');
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw initial
+    ctx.font = 'bold 24px Orbitron';
+    ctx.fillStyle = active ? '#fff' : (me.color || '#0ff');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(me.ability.ability[0], 32, 32);
+
+    // Draw cooldown sweep
+    if (remainingMs > 0) {
+      ctx.beginPath();
+      ctx.moveTo(32, 32);
+      ctx.arc(32, 32, 30, -Math.PI / 2, -Math.PI / 2 + (remainingMs / cooldownMs) * (Math.PI * 2));
+      ctx.lineTo(32, 32);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fill();
+    }
+
+    // Pulse effect
+    const container = document.getElementById('abilityHUD');
+    if (remainingMs <= 0 && !active) {
+        container.classList.add('ready');
+    } else {
+        container.classList.remove('ready');
+    }
+    
+    if (active) {
+        container.classList.add('active');
+    } else {
+        container.classList.remove('active');
+    }
+  }
+
   function updateFPS(AppState, dt) {
     AppState.fpsFrames = (AppState.fpsFrames||0) + 1;
     AppState.fpsTime = (AppState.fpsTime||0) + dt;

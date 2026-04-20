@@ -11,6 +11,7 @@ window.InputSystem = (() => {
       if (c === 'KeyS' || c === 'ArrowDown') AppState.input.s = 1;
       if (c === 'KeyA' || c === 'ArrowLeft') AppState.input.a = 1;
       if (c === 'KeyD' || c === 'ArrowRight') AppState.input.d = 1;
+      if (c === 'KeyQ') { e.preventDefault(); AppState.input.ability = true; }
       if (c === 'Space') { e.preventDefault(); AppState.input.split = true; }
       if (c === 'ShiftLeft' || c === 'ShiftRight') { Audio.resume(); Audio.boost(); AppState.input.boost = true; }
     });
