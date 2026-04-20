@@ -188,7 +188,9 @@ window.HudSystem = (() => {
     document.body.appendChild(popup);
     
     if (window.Audio && window.Audio.playAchievementUnlock) window.Audio.playAchievementUnlock();
-    // Particle stars at popup position (simplified for now)
+    if (window.Particles && window.AppState) {
+        window.Particles.emitAchievementStars(window.AppState.cam.x, 10, window.AppState.cam.z);
+    }
     
     setTimeout(() => {
         popup.classList.add('out');
@@ -256,8 +258,10 @@ window.HudSystem = (() => {
       </div>
       <div id="customize-right">
         <div id="demo-blob-container">
-           <!-- PlayCanvas will render here or we use a fallback -->
-           <div id="demo-blob-fallback"></div>
+           <div id="demo-blob-preview" style="width:150px; height:150px; border-radius:50%; background:${loadout.primaryColor}; box-shadow: 0 0 40px ${loadout.primaryColor}; position:relative; overflow:hidden;">
+              <div id="demo-blob-skin" class="skin-${loadout.skin}" style="position:absolute; inset:0; opacity:0.6;"></div>
+           </div>
+           <div id="demo-blob-title" style="margin-top:20px; font-family:'Orbitron'; font-weight:900; color:${loadout.primaryColor}">${loadout.title}</div>
         </div>
       </div>
     </div>`;
@@ -266,10 +270,21 @@ window.HudSystem = (() => {
 
   function setSkin(id) {
     window.MetaSystem.setLoadout({ skin: id });
-    openCustomize(); // Refresh
+    const p = document.getElementById('demo-blob-skin');
+    if (p) {
+        p.className = `skin-${id}`;
+    }
+    openCustomize(); // Refresh grid state
   }
   function setColor(hex) {
     window.MetaSystem.setLoadout({ primaryColor: hex });
+    const p = document.getElementById('demo-blob-preview');
+    if (p) {
+        p.style.background = hex;
+        p.style.boxShadow = `0 0 40px ${hex}`;
+    }
+    const t = document.getElementById('demo-blob-title');
+    if (t) t.style.color = hex;
   }
   function setAbility(id) {
     window.MetaSystem.setLoadout({ ability: id });

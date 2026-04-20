@@ -104,7 +104,6 @@ const Particles = (() => {
 
   function emitAchievementStars(x, y, z) {
     spawn(x, y, z, '#FFD700', 25, 300, 4, 1.2, true);
-    // Gravity adjustment for these particles would be needed in update() but for now spawn is enough
   }
 
   return { init, update, eatFood, eatPlayer, virusExplosion, splitEffect, spawnEffect, emitShieldBreak, emitMagnetField, emitDashTrail, emitAchievementStars };
