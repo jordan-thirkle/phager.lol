@@ -1,15 +1,21 @@
 const meta = (() => {
   const DEFAULTS = {
-    version: 2,
+    version: 3,
     name: "Player",
     totalGames: 0,
-    bestMass: 0,
+    bestBiomass: 0,
     totalKills: 0,
     totalXP: 0,
+    totalTimePlayed: 0, // In seconds
     level: 1,
     achievements: [],
     unlockedSkins: ["solid"],
     unlockedAbilities: ["SHIELD", "DASH", "MAGNET"],
+    modeStats: {
+      ffa: { kills: 0, games: 0, wins: 0, bestMass: 0 },
+      team: { kills: 0, games: 0, wins: 0, bestMass: 0 },
+      br: { kills: 0, games: 0, wins: 0, bestMass: 0 }
+    },
     loadout: {
       skin: "solid",
       primaryColor: "#00BFFF",
@@ -29,17 +35,18 @@ const meta = (() => {
   };
 
   let data = JSON.parse(JSON.stringify(DEFAULTS));
+  let sessionStartTime = Date.now();
+
   let saveTimeout = null;
 
   function load() {
     try {
-      const saved = localStorage.getItem('blobz_meta');
+      const saved = localStorage.getItem('phage_meta') || localStorage.getItem('blobz_meta');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.version < 2) {
-            // Migration logic
+        if (parsed.version < 3) {
             data = Object.assign({}, DEFAULTS, parsed);
-            data.version = 2;
+            data.version = 3;
         } else {
             data = parsed;
         }
@@ -54,7 +61,7 @@ const meta = (() => {
   function save() {
     if (saveTimeout) clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
-      localStorage.setItem('blobz_meta', JSON.stringify(data));
+      localStorage.setItem('phage_meta', JSON.stringify(data));
       saveTimeout = null;
     }, 500);
   }
@@ -87,10 +94,23 @@ const meta = (() => {
       }
       save();
     },
-    recordGame({ mass, kills }) {
+    recordGame({ mass, kills, mode, won = false }) {
       data.totalGames++;
       data.totalKills += kills;
-      if (mass > data.bestMass) data.bestMass = mass;
+      if (mass > data.bestBiomass) data.bestBiomass = mass;
+      
+      const m = mode || 'ffa';
+      if (data.modeStats[m]) {
+          data.modeStats[m].games++;
+          data.modeStats[m].kills += kills;
+          if (mass > data.modeStats[m].bestMass) data.modeStats[m].bestMass = mass;
+          if (won) data.modeStats[m].wins++;
+      }
+      
+      const sessionSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
+      data.totalTimePlayed += sessionSeconds;
+      sessionStartTime = Date.now();
+      
       save();
     },
     unlockAchievement(id) {
@@ -99,7 +119,7 @@ const meta = (() => {
       if (window.HudSystem && window.HudSystem.onAchievement) window.HudSystem.onAchievement(id);
       save();
     },
-    getSetting(key) { return data.settings[key]; },
+    getSetting(key) { return data.settings[key] === undefined ? DEFAULTS.settings[key] : data.settings[key]; },
     setSetting(key, val) {
       data.settings[key] = val;
       save();

@@ -31,19 +31,39 @@ window.Audio = (() => {
 
   return {
     init, resume,
-    eatFood() { synth({ freq: 300, freq2: 600, type: 'sine', duration: 0.08, vol: 0.15 }); },
+    eatFood() { 
+      synth({ freq: 200, freq2: 50, type: 'sine', duration: 0.1, vol: 0.2 }); 
+      // Add a small squelch
+      const t = ctx.currentTime;
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 15;
+      f.frequency.setValueAtTime(1000, t); f.frequency.exponentialRampToValueAtTime(100, t + 0.1);
+      const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 150;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.05, t); g.gain.linearRampToValueAtTime(0, t + 0.1);
+      o.connect(f); f.connect(g); g.connect(masterGain);
+      o.start(t); o.stop(t + 0.12);
+    },
     eatPlayer() {
-      synth({ freq: 200, freq2: 800, type: 'sawtooth', duration: 0.2, vol: 0.4 });
-      synth({ freq: 400, freq2: 1200, type: 'sine', duration: 0.3, vol: 0.3, delay: 0.05 });
+      synth({ freq: 150, freq2: 40, type: 'sawtooth', duration: 0.3, vol: 0.5 });
+      // Rupture sound
+      const t = ctx.currentTime;
+      for(let i=0; i<3; i++) {
+        synth({ freq: 300 + i*100, freq2: 50, type: 'square', duration: 0.2, vol: 0.15, delay: i*0.05 });
+      }
     },
     split() {
-      synth({ freq: 500, freq2: 300, type: 'square', duration: 0.12, vol: 0.2 });
-      synth({ freq: 600, freq2: 400, type: 'square', duration: 0.12, vol: 0.2, delay: 0.06 });
+      synth({ freq: 400, freq2: 150, type: 'triangle', duration: 0.15, vol: 0.3 });
+      synth({ freq: 300, freq2: 100, type: 'sine', duration: 0.15, vol: 0.2, delay: 0.05 });
     },
-    boost() { synth({ freq: 150, freq2: 400, type: 'sawtooth', duration: 0.18, vol: 0.25 }); },
+    boost() { synth({ freq: 120, freq2: 350, type: 'sawtooth', duration: 0.2, vol: 0.2 }); },
     die() {
-      synth({ freq: 600, freq2: 100, type: 'sawtooth', duration: 0.5, vol: 0.5 });
-      synth({ freq: 300, freq2: 80, type: 'sine', duration: 0.6, vol: 0.4, delay: 0.1 });
+      synth({ freq: 400, freq2: 40, type: 'sawtooth', duration: 0.8, vol: 0.6 });
+      synth({ freq: 200, freq2: 20, type: 'sine', duration: 1.0, vol: 0.5, delay: 0.1 });
+    },
+    lysis() {
+        const t = ctx.currentTime;
+        [0, 50, 100, 150].forEach(d => {
+            synth({ freq: 1200 - d*2, freq2: 100, type: 'square', duration: 0.4, vol: 0.2, delay: d/1000 });
+        });
     },
     levelUp() {
       [0, 100, 200, 350].forEach((d, i) => {
