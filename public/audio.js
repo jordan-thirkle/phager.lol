@@ -1,5 +1,5 @@
 // ─── BLOBZ.IO Audio Engine (Web Audio API, no downloads) ───
-const Audio = (() => {
+window.Audio = (() => {
   let ctx = null;
   let masterGain = null;
 

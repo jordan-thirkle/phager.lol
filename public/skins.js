@@ -1,5 +1,5 @@
 // ─── BLOBZ.IO Skin Texture Generator (Canvas 2D → PlayCanvas Texture) ───
-const Skins = (() => {
+window.Skins = (() => {
   const SIZE = 256;
   const PATTERNS = ['solid','dots','stripes','stars','hexagon','swirl','lightning','checkers', 'plasma', 'circuit', 'glitch', 'void'];
 

@@ -1,5 +1,5 @@
 // ─── BLOBZ.IO Particle System ───
-const Particles = (() => {
+window.Particles = (() => {
   const POOL_SIZE = 600;
   let app = null;
   const pool = [];
