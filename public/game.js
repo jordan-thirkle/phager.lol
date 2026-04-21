@@ -1,9 +1,10 @@
 // ─── BLOBZ.IO game.js (v2 Modular) ────────────────────────────
 console.log('📦 GAME.JS LOADED');
-const ARENA = 3000;
-const NEON = ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff','#88ff00','#0088ff','#ff4488','#ffbb00'];
+var ARENA = 3000;
+var NEON = ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff','#88ff00','#0088ff','#ff4488','#ffbb00'];
 
-const AppState = {
+var gridLines = [];
+var AppState = {
   app: null, socket: null, cameraEnt: null,
   myId: null, myName: '', myColor: NEON[Math.floor(Math.random()*NEON.length)],
   gameActive: false,
@@ -14,16 +15,16 @@ const AppState = {
   input: { dx:0, dz:0, w:0, a:0, s:0, d:0, split:false, boost:false },
   fpsFrames: 0, fpsTime: 0, lastPingTime: 0, sendTimer: 0
 };
-let gridLines = [];
-let perfProfile = 'MEDIUM';
 
 // ─── ENTRY POINTS ─────────────────────────────────────────────
 window.startGame = function() {
   console.log('▶️ START GAME CLICKED');
-  AppState.myName = (document.getElementById('nameInput').value.trim()||'PLAYER').toUpperCase().slice(0,16);
+  const nameEl = document.getElementById('nameInput');
+  AppState.myName = (nameEl ? nameEl.value.trim() : 'PLAYER').toUpperCase().slice(0,16);
   LS.set('name', AppState.myName);
   LS.set('games', LS.get('games')+1);
-  document.getElementById('start').style.display = 'none';
+  const startEl = document.getElementById('start');
+  if (startEl) startEl.style.display = 'none';
   AppState.perfProfile = detectPerformanceProfile();
   if (typeof MetaSystem !== 'undefined' && MetaSystem.init) MetaSystem.init();
   if (typeof Audio !== 'undefined' && Audio.init) { Audio.init(); Audio.resume(); }
@@ -33,7 +34,8 @@ window.startGame = function() {
 }
 
 window.respawn = function() {
-  document.getElementById('dead').style.display = 'none';
+  const deadEl = document.getElementById('dead');
+  if (deadEl) deadEl.style.display = 'none';
   AppState.socket.emit('respawn', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
 }
 console.log('✅ startGame defined:', typeof window.startGame);

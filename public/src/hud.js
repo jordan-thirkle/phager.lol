@@ -312,5 +312,9 @@ window.HudSystem = (() => {
     if (key === 'masterVolume' && window.Audio) window.Audio.setVolume(val);
   }
 
-  return { updateXPBar, flashXP, showStreak, addKill, updateNametags, updateLeaderboard, updateFPS, updateAbilityHUD, onAchievement, onLevelUp, openCustomize, openSettings, closeModal, setSetting };
+  return { 
+    updateXPBar, flashXP, showStreak, addKill, updateNametags, updateLeaderboard, 
+    updateFPS, updateAbilityHUD, onAchievement, onLevelUp, openCustomize, openSettings, 
+    closeModal, setSetting, setSkin, setColor, setAbility, setTitle 
+  };
 })();
