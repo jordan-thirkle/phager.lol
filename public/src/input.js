@@ -11,6 +11,7 @@ window.InputSystem = (() => {
     _nextHeld: false,
     _touchActive: false
   };
+  let keys = {};
 
   let joystick = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
   let touchBtns = {};
