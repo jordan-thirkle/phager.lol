@@ -1,6 +1,6 @@
 window.MinimapSystem = (() => {
   let mmCtx = null;
-  const ARENA = 3000;
+
 
   function init() {
     mmCtx = document.getElementById('mm').getContext('2d');
@@ -8,8 +8,8 @@ window.MinimapSystem = (() => {
 
   function draw(AppState) {
     if (!mmCtx) return;
-    const me = AppState.gameState.players.find(p => p.id === AppState.myId);
-    const size = 140, s = size / ARENA;
+    const me = AppState.gameState.players.find(p => p && p.id === AppState.myId);
+    const size = 140, arena = AppState.arenaSize || 3000, s = size / arena;
     const ctx = mmCtx;
 
     ctx.fillStyle = 'rgba(0,0,20,0.95)';
@@ -24,20 +24,22 @@ window.MinimapSystem = (() => {
       ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(size, i); ctx.stroke();
     }
 
-    // Food
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    for (const fid in AppState.fEnts) {
-      const fe = AppState.fEnts[fid];
-      if (!fe) continue;
-      const p = fe.getPosition();
-      const mx = (p.x + ARENA/2) * s, mz = (p.z + ARENA/2) * s;
-      ctx.beginPath(); ctx.arc(mx, mz, 1, 0, Math.PI*2); ctx.fill();
+    // Food (Only draw if HIGH perf)
+    if (AppState.perfProfile === 'HIGH') {
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      for (const fid in AppState.fEnts) {
+        const fe = AppState.fEnts[fid];
+        if (!fe) continue;
+        const p = fe.getLocalPosition(); // faster than getPosition
+        const mx = (p.x + arena/2) * s, mz = (p.z + arena/2) * s;
+        ctx.fillRect(mx-0.5, mz-0.5, 1, 1);
+      }
     }
 
     // Players
     ctx.globalAlpha = 0.9;
     for (const p of AppState.gameState.players) {
-      if (!p.blobs) continue;
+      if (!p || !p.blobs) continue;
       for (const b of p.blobs) {
         const mx = (b.x + ARENA/2) * s, mz = (b.z + ARENA/2) * s;
         const r = Math.max(2, Math.pow(b.mass, 0.45) * 2.2 * s * 0.5);

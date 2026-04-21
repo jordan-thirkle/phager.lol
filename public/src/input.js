@@ -15,6 +15,8 @@ window.InputSystem = (() => {
 
   let joystick = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
   let touchBtns = {};
+  let mouseDir = { dx: 0, dz: 0 };
+  let keybinds = { split: 'Space', boost: 'ShiftLeft', ability: 'KeyQ' };
 
   function init(AppState) {
     reinitBindings();
@@ -30,7 +32,10 @@ window.InputSystem = (() => {
     window.addEventListener('mousemove', e => {
       if (!AppState.gameActive || InputState._touchActive) return;
       const meta = window.MetaSystem;
-      if (meta && !meta.getSetting('mouseSteer')) return;
+      if (meta && !meta.getSetting('mouseSteer')) {
+          mouseDir = { dx: 0, dz: 0 };
+          return;
+      }
 
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
@@ -38,16 +43,12 @@ window.InputSystem = (() => {
       let dz = e.clientY - centerY;
       const dist = Math.hypot(dx, dz);
       if (dist > 20) {
-        dx /= dist; dz /= dist;
-        InputState.dx = dx;
-        InputState.dz = dz;
+        mouseDir.dx = dx / dist;
+        mouseDir.dz = dz / dist;
       } else {
-        InputState.dx = 0; InputState.dz = 0;
+        mouseDir.dx = 0; mouseDir.dz = 0;
       }
     });
-
-    // Gamepad support
-    setInterval(updateGamepad, 16);
   }
 
   function reinitBindings() {
@@ -57,26 +58,10 @@ window.InputSystem = (() => {
     }
   }
 
-  function updateGamepad() {
-    const pads = navigator.getGamepads();
-    const gp = pads[0];
-    if (!gp) return;
-
-    // Left Stick
-    const lx = gp.axes[0], lz = gp.axes[1];
-    if (Math.hypot(lx, lz) > 0.15) {
-      InputState.dx = lx;
-      InputState.dz = lz;
-    }
-
-    // Buttons (0: Cross/A, 1: Circle/B, 2: Square/X, 3: Triangle/Y)
-    if (gp.buttons[0].pressed) keys[keybinds.split] = true;
-    if (gp.buttons[1].pressed) keys[keybinds.boost] = true;
-    if (gp.buttons[2].pressed) keys[keybinds.ability] = true;
-  }
-
   function update(dt) {
-    // WASD / Arrows
+    let finalDX = 0, finalDZ = 0;
+
+    // 1. Keyboard Priority
     let kx = 0, kz = 0;
     if (keys['KeyW'] || keys['ArrowUp']) kz -= 1;
     if (keys['KeyS'] || keys['ArrowDown']) kz += 1;
@@ -85,29 +70,40 @@ window.InputSystem = (() => {
 
     if (kx !== 0 || kz !== 0) {
       const len = Math.hypot(kx, kz);
-      InputState.dx = kx / len;
-      InputState.dz = kz / len;
+      finalDX = kx / len;
+      finalDZ = kz / len;
+    } else {
+        // 2. Gamepad Override
+        const pads = navigator.getGamepads();
+        const gp = pads[0];
+        if (gp && Math.hypot(gp.axes[0], gp.axes[1]) > 0.15) {
+            finalDX = gp.axes[0];
+            finalDZ = gp.axes[1];
+        } else if (joystick.active) {
+            // 3. Touch Joystick
+            const dx = joystick.x - joystick.ox;
+            const dy = joystick.y - joystick.oy;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 12) {
+                finalDX = dx / Math.max(dist, 90);
+                finalDZ = dy / Math.max(dist, 90);
+                const jInner = document.getElementById('joystick-inner');
+                if (jInner) {
+                    jInner.style.left = `calc(50% + ${dx / dist * 40}px)`;
+                    jInner.style.top = `calc(50% + ${dy / dist * 40}px)`;
+                }
+            }
+        } else if (!InputState._touchActive) {
+            // 4. Mouse Fallback
+            finalDX = mouseDir.dx;
+            finalDZ = mouseDir.dz;
+        }
     }
 
-    // Joystick override
-    if (joystick.active) {
-      const dx = joystick.x - joystick.ox;
-      const dy = joystick.y - joystick.oy;
-      const dist = Math.hypot(dx, dy);
-      if (dist > 12) {
-        InputState.dx = dx / Math.max(dist, 90);
-        InputState.dz = dy / Math.max(dist, 90);
-      } else {
-        InputState.dx = 0; InputState.dz = 0;
-      }
-      const jInner = document.getElementById('joystick-inner');
-      if (jInner) {
-          jInner.style.left = `calc(50% + ${dx}px)`;
-          jInner.style.top = `calc(50% + ${dy}px)`;
-      }
-    }
+    InputState.dx = finalDX;
+    InputState.dz = finalDZ;
 
-    // Edge triggers
+    // Action Triggers (Edge Triggering)
     const splitDown = keys[keybinds.split] || touchBtns.split;
     InputState.split = splitDown && !InputState._splitHeld;
     InputState._splitHeld = splitDown;
@@ -124,7 +120,7 @@ window.InputSystem = (() => {
     InputState.spectateNext = nextDown && !InputState._nextHeld;
     InputState._nextHeld = nextDown;
     
-    // Reset touch buttons for edge triggering
+    // Reset momentary touch states
     touchBtns.split = false;
     touchBtns.boost = false;
     touchBtns.ability = false;

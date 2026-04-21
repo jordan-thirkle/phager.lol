@@ -6,7 +6,7 @@ window.CameraSystem = (() => {
       updateSpectator(AppState, dt);
       return;
     }
-    const me = AppState.gameState.players.find(p => p.id === AppState.myId);
+    const me = AppState.gameState.players.find(p => p && p.id === AppState.myId);
     if (!me || !me.blobs || !me.blobs.length) return;
 
     let cx = 0, cz = 0, totalMass = 0;

@@ -200,7 +200,7 @@ window.Skins = (() => {
     const key = `${id}_${color}`;
     if (cache[key]) return cache[key];
     const cv = document.createElement('canvas'); cv.width = SIZE; cv.height = SIZE;
-    const ctx = cv.getContext('2d');
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
     const patName = PATTERNS[patternIndexForId(id)];
     drawBase(ctx, color);
     // Clip pattern to circle

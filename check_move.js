@@ -12,7 +12,7 @@ const puppeteer = require('puppeteer');
   await page.evaluate(() => {
     window.lastPos = null;
     setInterval(() => {
-      const me = gameState.players.find(p => p.id === myId);
+      const me = AppState.gameState.players.find(p => p.id === AppState.myId);
       if (me && me.blobs[0]) {
         if (window.lastPos) {
            console.log(`Blob X: ${me.blobs[0].x.toFixed(2)}, Z: ${me.blobs[0].z.toFixed(2)}`);
@@ -20,6 +20,7 @@ const puppeteer = require('puppeteer');
         window.lastPos = { x: me.blobs[0].x, z: me.blobs[0].z };
       }
     }, 500);
+
   });
 
   // Move mouse to top right

@@ -66,11 +66,18 @@ const BattleRoyale = {
         const b = p.blobs[0];
         const dist = Math.hypot(b.x - this.zone.centerX, b.z - this.zone.centerZ);
         if (dist > this.zone.radius) {
-            for (const bl of p.blobs) {
-                bl.mass -= 2 * (delta / 1000);
-                if (bl.mass < 40) {
-                    // Logic to handle death from zone should be in server.js
+            for (let i = p.blobs.length - 1; i >= 0; i--) {
+                const bl = p.blobs[i];
+                bl.mass -= 5 * (delta / 1000); // 5 mass per second damage
+                if (bl.mass < 15) {
+                    p.blobs.splice(i, 1);
                 }
+            }
+            if (p.blobs.length === 0) {
+                gs.removePlayer(p.id);
+                // The dead event is now handled by removePlayer or a separate emit in server.js
+                // But for immediate feedback:
+                if (typeof io !== 'undefined') io.to(p.id).emit('dead', { killedBy: 'THE ZONE', rank: this.placements.length + 1 });
             }
         }
         // Normal decay
