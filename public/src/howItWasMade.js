@@ -65,29 +65,49 @@ function initHowItWasMade() {
     
     const data = [
         {
-            date: "APR 17, 2026", time: "14:30", title: "THE SPARK",
-            prompt: "Build a 3D agar.io clone in PlayCanvas with zero external assets for Vibe Jam 2026.",
-            built: ["game.js monolith", "spatial arena", "food spawning", "split/boost mechanics"]
+            date: "APR 17, 2026", time: "14:30", title: "THE INITIAL SPARK",
+            prompt: "Build a 3D agar.io clone in PlayCanvas with zero external assets.",
+            built: [
+                "Drafted the 'Blobz' core physics loop.",
+                "Implemented spatial food spawning across a 3000x3000px arena.",
+                "Created the first 3D procedural sphere model using PlayCanvas primitives."
+            ]
         },
         {
-            date: "APR 18, 2026", time: "09:00", title: "GOING PROCEDURAL",
-            prompt: "Generate all textures and audio in-browser. No downloads, no loading screen.",
-            built: ["skins.js (Canvas 2D pattern gen)", "audio.js (Web Audio synth)", "particles.js (CPU-side pooling)"]
+            date: "APR 18, 2026", time: "09:00", title: "PROCEDURAL BREAKTHROUGH",
+            prompt: "Generate all textures and audio in-browser. No downloads.",
+            built: [
+                "Engineered 'skins.js' to generate 2D canvas patterns as dynamic textures.",
+                "Built 'audio.js'—a Web Audio synth that creates 'pop' and 'boost' sounds from oscillators.",
+                "Result: A 0kb asset footprint for faster load times."
+            ]
         },
         {
-            date: "APR 19, 2026", time: "11:15", title: "THE BRAIN & THE HOOK",
-            prompt: "Add intelligent bots and meta-progression. Make the arena feel alive.",
-            built: ["AI Desirability Scoring", "XP/Leveling system", "Achievement system", "Kill feed & Leaderboards"]
+            date: "APR 19, 2026", time: "22:15", title: "NETWORKING V2: THE BINARY REFACTOR",
+            prompt: "Reduce latency by moving from JSON to binary serialization.",
+            built: [
+                "Integrated MessagePack to compress world states by ~70%.",
+                "Implemented Client-Side Prediction and Linear Interpolation for buttery-smooth movement.",
+                "Optimized the server-side spatial hash grid to handle 100+ entities."
+            ]
         },
         {
-            date: "APR 20, 2026", time: "16:45", title: "THE V2 REBUILD",
-            prompt: "Implement a fully modular architecture with binary networking.",
-            built: ["Modular JS architecture", "MessagePack binary encoding", "Spatial Hashing optimization"]
+            date: "APR 20, 2026", time: "11:45", title: "THE SOCIAL HUB EVOLUTION",
+            prompt: "Make the game feel alive. Add chat, levels, and persistent stats.",
+            built: [
+                "Designed a Glassmorphic Hub UI with real-time Global Comms.",
+                "Created the MetaSystem for persistent XP tracking and achievements.",
+                "Implemented the Hall of Fame to showcase the all-time legends."
+            ]
         },
         {
-            date: "APR 21, 2026", time: "01:30", title: "THE POLISH PHASE",
-            prompt: "Finalize UX, fix CDN blocking, and implement localized dependency loading.",
-            built: ["Local lib bundling", "UX/UI Overhaul", "How It Was Made interactive timeline"]
+            date: "APR 21, 2026", time: "09:30", title: "THE PRODUCTION POLISH",
+            prompt: "Fix race conditions, optimize GitHub, and finalize Vibe Jam submission.",
+            built: [
+                "Crushed the 'null pointer' race conditions during startup.",
+                "Unified the Social Hub logic to run independently of the 3D Engine.",
+                "Finalized the professional GitHub documentation and repository infrastructure."
+            ]
         }
     ];
 
@@ -132,5 +152,10 @@ function initHowItWasMade() {
     window.openHowItWasMade = function() {
         overlay.style.display = 'flex';
         setTimeout(() => overlay.classList.add('show'), 10);
+    };
+
+    window.closeHowItWasMade = function() {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.style.display = 'none', 300);
     };
 }

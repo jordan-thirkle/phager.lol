@@ -3,14 +3,13 @@
 <head>
 <meta charset="utf-8">
 <title>BLOBZ.IO V2 — Vibe Jam 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://code.playcanvas.com/playcanvas-stable.min.js"></script>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@msgpack/msgpack@3.0.0-beta2/dist.browser/msgpack.min.js"></script>
+<!-- Libraries loaded at bottom for stability -->
 <style>
 body{margin:0;overflow:hidden;background:#020207;color:#fff;font-family:'Inter',sans-serif;user-select:none}
 canvas{display:block;width:100vw;height:100vh}
-#start{position:fixed;inset:0;background:radial-gradient(circle at center, rgba(10,20,50,0.9), rgba(2,2,8,1));display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
+/* Home Layout (Replaced old #start) */
 #startTitle{font-family:'Orbitron';font-size:80px;font-weight:900;letter-spacing:10px;margin-bottom:10px;text-shadow:0 0 30px rgba(0,255,255,0.4)}
 #startTitle span{color:#0ff;text-shadow:0 0 20px #0ff}
 #nameInput{background:rgba(0,0,0,0.5);border:2px solid rgba(0,255,255,0.3);padding:15px 30px;font-family:'Orbitron';font-size:20px;color:#fff;text-align:center;width:300px;border-radius:12px;margin-bottom:20px;outline:none;transition:0.3s}
@@ -216,7 +215,7 @@ button:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(0,255,255,0.6)}
 .hof-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ffffff05; font-size: 11px; }
 .hof-rank { color: #ffffff44; width: 25px; }
 .hof-name { flex: 1; color: #fff; font-weight: 700; }
-.hof-score { color: #0ff; font-family: 'Orbitron'; }
+</style>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -229,7 +228,7 @@ button:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(0,255,255,0.6)}
     <div id="home-left">
         <div id="global-chat">
             <div id="chat-header">GLOBAL COMMS</div>
-            <div id="chat-messages" id="global-messages"></div>
+            <div id="chat-messages"></div>
             <div id="chat-input-area">
                 <input type="text" id="chat-input" placeholder="Say something..." maxlength="100">
                 <button onclick="sendGlobalChat()" style="background:#0ff; border:none; border-radius:4px; width:35px; height:32px; cursor:pointer;">▶</button>
@@ -289,6 +288,10 @@ button:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(0,255,255,0.6)}
              <div class="ss-label">LEVEL <span id="ss_level">1</span></div>
              <div id="ss_xp_bar"><div id="ss_xp_fill" style="width:0%"></div></div>
           </div>
+          <div class="ss-card">
+             <div class="ss-label">BEST KILLS</div>
+             <div class="ss-value" id="ss_kills">0</div>
+          </div>
         </div>
     </div>
 </div>
@@ -342,13 +345,6 @@ button:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(0,255,255,0.6)}
 <script src="/src/howItWasMade.js"></script>
 <script src="/game.js"></script>
 <script>
-  let selectedMode = 'ffa';
-  function selectMode(mode, el) {
-    selectedMode = mode;
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
-    el.classList.add('active');
-  }
-
   // Countdown Timer logic
   const deadline = new Date("April 26, 2026 12:00:00 UTC").getTime();
   setInterval(() => {

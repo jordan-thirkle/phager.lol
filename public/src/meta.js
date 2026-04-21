@@ -108,6 +108,13 @@ const meta = (() => {
     setLoadout(partial) {
       Object.assign(data.loadout, partial);
       save();
+    },
+    getLevelInfo(xp) {
+        let lvl = 1;
+        while (XP_THRESHOLDS[lvl] && xp >= XP_THRESHOLDS[lvl]) lvl++;
+        const currentXP = xp - (XP_THRESHOLDS[lvl - 1] || 0);
+        const nextXP = (XP_THRESHOLDS[lvl] || (XP_THRESHOLDS[lvl - 1] + 5000)) - (XP_THRESHOLDS[lvl - 1] || 0);
+        return { level: lvl, progress: Math.min(1, currentXP / nextXP) };
     }
   };
 })();

@@ -40,17 +40,30 @@ window.startGame = function() {
     const nameEl = document.getElementById('nameInput');
     AppState.myName = (nameEl ? nameEl.value.trim() : 'PLAYER').toUpperCase().slice(0,16);
     LS.set('name', AppState.myName);
-    LS.set('games', LS.get('games')+1);
-    const startEl = document.getElementById('start');
-    if (startEl) startEl.style.display = 'none';
+    
+    const homeEl = document.getElementById('home-layout');
+    if (homeEl) homeEl.style.display = 'none';
+    
     AppState.perfProfile = detectPerformanceProfile();
     if (typeof MetaSystem !== 'undefined' && MetaSystem.init) MetaSystem.init();
     if (typeof Audio !== 'undefined' && Audio.init) { Audio.init(); Audio.resume(); }
     initPC(); connectSocket();
+    
     console.log('🚀 Emitting JOIN for', AppState.myName);
-    AppState.socket.emit('join', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
+    AppState.socket.emit('join', MessagePack.encode({ 
+        name: AppState.myName, 
+        color: AppState.myColor,
+        mode: AppState.selectedMode || 'ffa',
+        ability: AppState.selectedAbility || 'SHIELD'
+    }));
   });
 }
+
+window.selectMode = function(mode, el) {
+    AppState.selectedMode = mode;
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+};
 
 window.respawn = function() {
   const deadEl = document.getElementById('dead');
@@ -59,6 +72,22 @@ window.respawn = function() {
 }
 console.log('✅ startGame/respawn defined');
 
+// ─── INITIAL LOAD SEQUENCE ────────────────────────────────────
+function onInitialLoad() {
+  console.log('🏁 Initializing Game Systems...');
+  loadStartStats();
+  console.log('✅ Stats Loaded');
+  initSettingsListeners();
+  if (typeof initHowItWasMade === 'function') initHowItWasMade();
+  
+  // Create socket immediately to support Home Chat
+  connectSocket();
+  console.log('✅ Systems Ready');
+  
+  const nameInput = document.getElementById('nameInput');
+  if (nameInput) nameInput.addEventListener('keydown',e=>{ if(e.key==='Enter') window.startGame(); });
+}
+
 // ─── STATS (localStorage) ────────────────────────────────────
 const LS = {
   get(k,def=0){ try{ return JSON.parse(localStorage.getItem('blobz_'+k))??def; }catch{ return def; } },
@@ -66,15 +95,22 @@ const LS = {
 };
 
 function loadStartStats() {
-  const best = LS.get('best',0), kills = LS.get('kills',0), games = LS.get('games',0);
-  if (best > 0 || kills > 0) {
-    document.getElementById('startStats').style.display='flex';
-    document.getElementById('ss_best').textContent = best;
-    document.getElementById('ss_kills').textContent = kills;
-    document.getElementById('ss_games').textContent = games;
-  }
+  const meta = (typeof MetaSystem !== 'undefined') ? window.MetaSystem.getData() : { totalXP: 0, bestMass: 0 };
+  const levelData = (typeof MetaSystem !== 'undefined') ? window.MetaSystem.getLevelInfo(meta.totalXP) : { level: 1, progress: 0 };
+  
+  const elXp = document.getElementById('ss_xp');
+  const elLevel = document.getElementById('ss_level');
+  const elKills = document.getElementById('ss_kills');
+  const elXpFill = document.getElementById('ss_xp_fill');
+  const elName = document.getElementById('nameInput');
+
+  if (elXp) elXp.textContent = meta.totalXP;
+  if (elLevel) elLevel.textContent = levelData.level;
+  if (elKills) elKills.textContent = meta.bestMass; // Showing best mass as "Best" stat
+  if (elXpFill) elXpFill.style.width = (levelData.progress * 100) + '%';
+  
   const savedName = LS.get('name','');
-  if (savedName) document.getElementById('nameInput').value = savedName;
+  if (savedName && elName) elName.value = savedName;
 }
 
 // ─── DEV SETTINGS ─────────────────────────────────────────────
@@ -110,75 +146,6 @@ function initPC() {
   AppState.app = app;
   AppState.app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
   AppState.app.setCanvasResolution(pc.RESOLUTION_AUTO);
-
-  AppState.socket.on('playerCount', count => {
-      const el = document.getElementById('player-count');
-      if (el) el.textContent = count;
-  });
-
-  // Global Chat Listeners
-  AppState.socket.on('chat_history', msgs => {
-      const container = document.getElementById('chat-messages');
-      if (container) {
-          container.innerHTML = '';
-          msgs.forEach(addChatMessage);
-      }
-  });
-
-  AppState.socket.on('new_global_chat', msg => {
-      addChatMessage(msg);
-  });
-
-  function addChatMessage(msg) {
-      const container = document.getElementById('chat-messages');
-      if (!container) return;
-      const div = document.createElement('div');
-      div.className = 'chat-msg';
-      div.innerHTML = `
-          <div class="chat-meta">
-              <span class="chat-name">${msg.name}</span>
-              <span>${msg.time}</span>
-          </div>
-          <div>${msg.text}</div>
-      `;
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
-  }
-
-  window.sendGlobalChat = function() {
-      const input = document.getElementById('chat-input');
-      const text = input.value.trim();
-      if (!text) return;
-      const meta = window.MetaSystem.get();
-      AppState.socket.emit('send_global_chat', { name: meta.name || 'ANON', text });
-      input.value = '';
-  };
-
-  // Hall of Fame Mock
-  const hof = [
-      { name: 'APEX_PREDATOR', score: 145200 },
-      { name: 'VOID_WALKER', score: 98400 },
-      { name: 'GLITCH_KING', score: 76100 },
-      { name: 'NEON_BLOB', score: 54300 },
-      { name: 'GHOST_CELL', score: 42100 }
-  ];
-  const hofList = document.getElementById('hof-list');
-  if (hofList) {
-      hofList.innerHTML = hof.map((h, i) => `
-          <div class="hof-item">
-              <span class="hof-rank">#${i+1}</span>
-              <span class="hof-name">${h.name}</span>
-              <span class="hof-score">${h.score.toLocaleString()}</span>
-          </div>
-      `).join('');
-  }
-
-  const meta = window.MetaSystem.get();
-  const levelData = window.MetaSystem.getLevelInfo(meta.xp);
-  document.getElementById('ss_xp').textContent = meta.xp;
-  document.getElementById('ss_level').textContent = levelData.level;
-  document.getElementById('ss_kills').textContent = meta.bestKills;
-  document.getElementById('ss_xp_fill').style.width = (levelData.progress * 100) + '%';
 
   AppState.cameraEnt = new pc.Entity('cam');
   AppState.cameraEnt.addComponent('camera', { clearColor:new pc.Color(0.02,0.02,0.07), nearClip:0.5, farClip:9000, fov:62 });
@@ -430,6 +397,19 @@ function connectSocket() {
   AppState.socket = io();
   AppState.clientSeq = 1;
 
+  // Home-Screen Social Listeners (Available immediately)
+  AppState.socket.on('playerCount', count => {
+    const el = document.getElementById('player-count');
+    if (el) el.textContent = count;
+  });
+
+  AppState.socket.on('chat_history', msgs => {
+    const container = document.getElementById('chat-messages');
+    if (container) { container.innerHTML = ''; msgs.forEach(addChatMessage); }
+  });
+
+  AppState.socket.on('new_global_chat', msg => { addChatMessage(msg); });
+
   AppState.socket.on('connect', () => {
     console.log('✅ Socket connected!');
   });
@@ -611,13 +591,55 @@ function detectPerformanceProfile() {
 }
 
 
-// Init stats on load
-try {
-  loadStartStats();
-  initSettingsListeners();
-  if (typeof initHowItWasMade === 'function') initHowItWasMade();
-  const nameInput = document.getElementById('nameInput');
-  if (nameInput) nameInput.addEventListener('keydown',e=>{ if(e.key==='Enter') window.startGame(); });
-} catch(e) {
-  console.error('❌ ERROR DURING GAME.JS INIT:', e);
+// Entry helpers
+function addChatMessage(msg) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.className = 'chat-msg';
+    div.innerHTML = `
+        <div class="chat-meta">
+            <span class="chat-name">${msg.name}</span>
+            <span>${msg.date} • ${msg.time}</span>
+        </div>
+        <div>${msg.text}</div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
 }
+
+window.sendGlobalChat = function() {
+    if (!AppState.socket) return;
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    const meta = window.MetaSystem.getData();
+    AppState.socket.emit('send_global_chat', { name: meta.name || 'ANON', text });
+    input.value = '';
+};
+
+function setupHof() {
+    const hof = [
+        { name: 'APEX_PREDATOR', score: 145200 },
+        { name: 'VOID_WALKER', score: 98400 },
+        { name: 'GLITCH_KING', score: 76100 },
+        { name: 'NEON_BLOB', score: 54300 },
+        { name: 'GHOST_CELL', score: 42100 }
+    ];
+    const hofList = document.getElementById('hof-list');
+    if (hofList) {
+        hofList.innerHTML = hof.map((h, i) => `
+            <div class="hof-item">
+                <span class="hof-rank">#${i+1}</span>
+                <span class="hof-name">${h.name}</span>
+                <span class="hof-score">${h.score.toLocaleString()}</span>
+            </div>
+        `).join('');
+    }
+}
+
+// Start sequence
+checkLibraries(() => {
+    onInitialLoad();
+    setupHof();
+});
