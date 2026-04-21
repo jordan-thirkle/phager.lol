@@ -233,7 +233,11 @@ window.HudSystem = (() => {
         <section><h3>SKIN PATTERN</h3><div id="skin-grid">`;
     skins.forEach(s => {
       const unlocked = meta.unlockedSkins.includes(s) || s === 'solid';
-      html += `<div class="skin-tile ${s} ${unlocked?'':'locked'} ${loadout.skin===s?'active':''}" onclick="${unlocked?`HudSystem.setSkin('${s}')`:''}">
+      const hint = unlocked ? '' : getUnlockHint('skin', s);
+      html += `<div class="skin-tile skin-${s} ${unlocked?'':'locked'} ${loadout.skin===s?'active':''}" 
+                onclick="${unlocked?`HudSystem.setSkin('${s}')`:`document.getElementById('unlock-info').textContent='${hint}'`}"
+                onmouseover="if(!${unlocked}) document.getElementById('unlock-info').textContent='${hint}'"
+                onmouseout="document.getElementById('unlock-info').textContent=''">
         ${unlocked ? '' : '🔒'}
       </div>`;
     });
@@ -244,13 +248,19 @@ window.HudSystem = (() => {
         <section><h3>ACTIVE ABILITY</h3><div id="ability-select">`;
     abilities.forEach(a => {
       const unlocked = meta.unlockedAbilities.includes(a);
-      html += `<div class="ability-card ${a} ${unlocked?'':'locked'} ${loadout.ability===a?'active':''}" onclick="${unlocked?`HudSystem.setAbility('${a}')`:''}">
+      const hint = unlocked ? '' : getUnlockHint('ability', a);
+      html += `<div class="ability-card ${a} ${unlocked?'':'locked'} ${loadout.ability===a?'active':''}" 
+                onclick="${unlocked?`HudSystem.setAbility('${a}')`:`document.getElementById('unlock-info').textContent='${hint}'`}"
+                onmouseover="if(!${unlocked}) document.getElementById('unlock-info').textContent='${hint}'"
+                onmouseout="document.getElementById('unlock-info').textContent=''">
         <div class="a-name">${a}</div>
         ${unlocked ? '' : '<div class="a-lock">LOCKED</div>'}
       </div>`;
     });
     html += `</div></section>
-        <section><h3>TITLE</h3><select id="title-select" onchange="HudSystem.setTitle(this.value)">`;
+        <section><h3>TITLE</h3>
+        <p class="custom-hint">Visible to all players in-game</p>
+        <select id="title-select" onchange="HudSystem.setTitle(this.value)">`;
     ['SPAWN', 'HUNTER', 'PREDATOR', 'APEX', 'PHANTOM', 'GODLIKE', 'IMMORTAL'].forEach(t => {
       html += `<option value="${t}" ${loadout.title===t?'selected':''}>${t}</option>`;
     });
@@ -258,14 +268,38 @@ window.HudSystem = (() => {
       </div>
       <div id="customize-right">
         <div id="demo-blob-container">
-           <div id="demo-blob-preview" style="width:150px; height:150px; border-radius:50%; background:${loadout.primaryColor}; box-shadow: 0 0 40px ${loadout.primaryColor}; position:relative; overflow:hidden;">
+           <div id="demo-blob-preview" style="width:180px; height:180px; border-radius:50%; background:${loadout.primaryColor}; box-shadow: 0 0 50px ${loadout.primaryColor}; position:relative; overflow:hidden; border: 4px solid rgba(255,255,255,0.2);">
               <div id="demo-blob-skin" class="skin-${loadout.skin}" style="position:absolute; inset:0; opacity:0.6;"></div>
+              <div style="position:absolute; inset:0; background:radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4), transparent);"></div>
            </div>
-           <div id="demo-blob-title" style="margin-top:20px; font-family:'Orbitron'; font-weight:900; color:${loadout.primaryColor}">${loadout.title}</div>
+           <div id="demo-blob-title" style="margin-top:20px; font-family:'Orbitron'; font-weight:900; font-size:22px; letter-spacing:3px; color:${loadout.primaryColor}">${loadout.title}</div>
+           <div id="unlock-info" style="margin-top:15px; font-size:12px; color:#ffffff55; font-family:'Inter'; text-transform:uppercase; letter-spacing:1px;"></div>
         </div>
       </div>
     </div>`;
     return html;
+  }
+
+  function getUnlockHint(type, id) {
+    const hints = {
+      skin: {
+        dots: 'ACHIEVEMENT: FIRST BLOOD',
+        hexagon: 'ACHIEVEMENT: MASS MONSTER',
+        lightning: 'ACHIEVEMENT: VIRUS KING',
+        checkers: 'ACHIEVEMENT: TEAM PLAYER',
+        swirl: 'ACHIEVEMENT: PACIFIST',
+        plasma: 'REACH LEVEL 4',
+        circuit: 'REACH LEVEL 5',
+        glitch: 'REACH LEVEL 6',
+        void: 'REACH LEVEL 7'
+      },
+      ability: {
+        DASH: 'ACHIEVEMENT: SPEED DEMON',
+        MAGNET: 'REACH LEVEL 3',
+        DECOY: 'REACH LEVEL 5'
+      }
+    };
+    return hints[type]?.[id] || 'LOCKED';
   }
 
   function setSkin(id) {
@@ -292,6 +326,8 @@ window.HudSystem = (() => {
   }
   function setTitle(t) {
     window.MetaSystem.setLoadout({ title: t });
+    const p = document.getElementById('demo-blob-title');
+    if (p) p.textContent = t;
   }
 
   function renderSettings() {

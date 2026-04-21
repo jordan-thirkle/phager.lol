@@ -65,120 +65,67 @@ function initHowItWasMade() {
     
     const data = [
         {
-            stage: 1, title: "Stage 1: The Spark", status: "complete",
+            date: "APR 17, 2026", time: "14:30", title: "THE SPARK",
             prompt: "Build a 3D agar.io clone in PlayCanvas with zero external assets for Vibe Jam 2026.",
-            built: ["game.js monolith", "arena", "food orbs", "basic split/boost"]
+            built: ["game.js monolith", "spatial arena", "food spawning", "split/boost mechanics"]
         },
         {
-            stage: 2, title: "Stage 2: Going Procedural", status: "complete",
+            date: "APR 18, 2026", time: "09:00", title: "GOING PROCEDURAL",
             prompt: "Generate all textures and audio in-browser. No downloads, no loading screen.",
-            built: ["skins.js (8 patterns)", "audio.js (Web Audio synth)", "particles.js (300-entity pool)"]
+            built: ["skins.js (Canvas 2D pattern gen)", "audio.js (Web Audio synth)", "particles.js (CPU-side pooling)"]
         },
         {
-            stage: 3, title: "Stage 3: The Brain", status: "complete",
-            prompt: "Add 10 intelligent bots that hunt, flee, and farm. Make the arena feel alive even with 1 human player.",
-            built: ["server.js bot AI with desirability scoring"]
+            date: "APR 19, 2026", time: "11:15", title: "THE BRAIN & THE HOOK",
+            prompt: "Add intelligent bots and meta-progression. Make the arena feel alive.",
+            built: ["AI Desirability Scoring", "XP/Leveling system", "Achievement system", "Kill feed & Leaderboards"]
         },
         {
-            stage: 4, title: "Stage 4: The Hook", status: "complete",
-            prompt: "Add XP, leveling, kill streaks with popup messages, and a real-time leaderboard. Make it addictive.",
-            built: ["7 title tiers", "DOUBLE KILL → GODMODE streak chain", "kill feed"]
+            date: "APR 20, 2026", time: "16:45", title: "THE V2 REBUILD",
+            prompt: "Implement a fully modular architecture with binary networking.",
+            built: ["Modular JS architecture", "MessagePack binary encoding", "Spatial Hashing optimization"]
         },
         {
-            stage: 5, title: "Stage 5: The Big Upgrade", status: "complete",
-            prompt: "Take this jam prototype and design a fully-featured multiplayer game. Improve everything.",
-            built: ["v2 GDD", "3 game modes", "ability system", "5 bot archetypes", "mobile support", "meta-progression"]
-        },
-        {
-            stage: 6, title: "Stage 6: The Rebuild", status: "complete",
-            prompt: "Implement the v2 GDD in 4 phases without breaking the live build.",
-            built: ["this implementation plan", "modular architecture", "MessagePack networking", "spatial hash collision"]
-        },
-        {
-            stage: 7, title: "Phase 1: Core Architecture & Networking", status: "complete",
-            prompt: "Execute Phase 1 — structural teardown, msgpack, delta-state, spatial hash.",
-            built: [
-                "Extracted camera.js, hud.js, minimap.js, input.js",
-                "@msgpack/msgpack for binary serialisation",
-                "Delta-state compression (41% bandwidth reduction)",
-                "Spatial hash collision broadphase O(n×k)",
-                "AppState shared object pattern",
-                "howItWasMade.js timeline overlay"
-            ]
-        },
-        {
-            stage: 8, title: 'Phase 2: Ability System & Visual Polish', status: 'complete',
-            prompt: 'Implemented ability system and visual polish.',
-            built: [
-                'Active Abilities: Shield, Magnet, Dash, Decoy',
-                'Radial Cooldown HUD Integration',
-                'Procedural Skins: Plasma, Circuit, Glitch, Void',
-                'Web Audio API Synthesis Engine',
-                'Particle Pool Expansion (600 entities)'
-            ]
-        },
-        {
-            stage: 9, title: 'Phase 3: Bot AI v2 & Game Modes', status: 'complete',
-            prompt: 'Implemented advanced bot archetypes and multi-mode support.',
-            built: [
-                '5 Bot Archetypes: Hunter, Farmer, Defender, Ghost, Apex',
-                'Coordinate Pack Mode for Hunter bots',
-                'Strategy Pattern ModeManager',
-                'FFA, Team Arena, and Battle Royale Modes',
-                'Dynamic Zone Shrinking logic'
-            ]
-        },
-        {
-            stage: 10, title: 'Phase 4: Mobile, Meta & Final Polish', status: 'complete',
-            prompt: 'Implemented touch controls, meta-progression, and final polish.',
-            built: [
-                'Unified Input System (Keyboard, Mouse, Touch, Gamepad)',
-                'Mobile Virtual Joystick & Action Buttons',
-                'Cinematic Spectator Camera with target switching',
-                'Meta-progression: XP, Levels, 8 Achievements',
-                'Customization Loadout & Settings Panel',
-                'Performance Auto-Scaling (HIGH/MEDIUM/LOW)'
-            ]
-        },
-        {
-            stage: 11, title: "The Finished Game", status: "complete",
-            prompt: "Ship it.",
-            built: [
-                "3 fully verified game modes: FFA, Team Arena, Battle Royale",
-                "4 active abilities with server-authoritative cooldowns",
-                "5 bot archetypes with pack mode flanking",
-                "Mobile touch controls: virtual joystick + tap zones",
-                "Meta-progression: XP, levels, 8 achievements, cosmetic loadout",
-                "Spectator mode with cinematic dolly camera",
-                "Performance auto-scaling: HIGH / MEDIUM / LOW profiles",
-                "Zero external assets. Zero loading screens. Built entirely through human–AI collaboration."
-            ]
+            date: "APR 21, 2026", time: "01:30", title: "THE POLISH PHASE",
+            prompt: "Finalize UX, fix CDN blocking, and implement localized dependency loading.",
+            built: ["Local lib bundling", "UX/UI Overhaul", "How It Was Made interactive timeline"]
         }
     ];
 
-    let cardsHtml = '';
+    let timelineHtml = '';
     data.forEach(d => {
-        let lis = d.built.map(o => `<li>${o}</li>`).join('');
-        let borderStyle = d.status === 'in-progress' ? 'border: 1px dashed rgba(0, 255, 255, 0.5); opacity: 0.55;' : 'border: 1px solid rgba(0, 255, 255, 0.2); opacity: 1;';
-        let titleSuffix = d.status === 'in-progress' ? ' [IN PROGRESS]' : '';
-        let dotStyle = d.status === 'in-progress' ? '' : 'background: #00BFFF; box-shadow: 0 0 10px #00BFFF;';
-        
-        cardsHtml += `
-            <div class="hiwm-card" style="${borderStyle}">
-                <div class="hiwm-card-dot" style="position: absolute; left: -36px; top: 20px; width: 10px; height: 10px; border-radius: 50%; background: #555; ${dotStyle}"></div>
-                <div class="hiwm-card-title">${d.title}${titleSuffix}</div>
-                <div class="hiwm-prompt">PROMPT USED:\n${d.prompt}</div>
-                <div class="hiwm-outputs">WHAT WAS BUILT:<ul>${lis}</ul></div>
+        timelineHtml += `
+            <div class="hiwm-card">
+                <div style="font-size:10px; color:#0ff; opacity:0.6; margin-bottom:5px; letter-spacing:1px;">${d.date} • ${d.time}</div>
+                <div class="hiwm-card-title">${d.title}</div>
+                <div class="hiwm-prompt">PROMPT USED: \n${d.prompt}</div>
+                <div class="hiwm-outputs">
+                    <ul>${d.built.map(b => `<li>${b}</li>`).join('')}</ul>
+                </div>
             </div>
         `;
     });
 
     overlay.innerHTML = `
-        <div class="hiwm-close" onclick="document.getElementById('hiwm-overlay').classList.remove('show'); setTimeout(() => document.getElementById('hiwm-overlay').style.display='none', 300);">&times;</div>
-        <div class="hiwm-title">HOW IT WAS MADE</div>
-        <div class="hiwm-timeline">${cardsHtml}</div>
-        <div class="hiwm-footer">BLOBZ.IO was designed and built entirely through human–AI collaboration across 4 development phases. Every system, mechanic, and line of architecture was prompted into existence — from a single jam prototype to a fully-featured multiplayer title.</div>
+        <div class="hiwm-close" onclick="window.closeHowItWasMade()">×</div>
+        <h1 class="hiwm-title">BEHIND THE CODE</h1>
+        <p style="margin-top:10px; color:#ffffff55; font-size:12px; letter-spacing:2px; text-align:center;">VIBE JAM 2026 SUBMISSION</p>
+        
+        <div class="hiwm-timeline">
+            ${timelineHtml}
+        </div>
+
+        <div style="background:rgba(0,255,255,0.05); border:1px solid rgba(0,255,255,0.3); padding:30px; border-radius:15px; text-align:center; margin: 40px auto 60px auto; max-width:600px; width:90%; backdrop-filter:blur(10px);">
+            <div style="font-size:18px; color:#0ff; margin-bottom:15px; font-family:'Orbitron'; letter-spacing:2px;">SOURCE CODE</div>
+            <p style="font-size:13px; color:#aaa; margin-bottom:20px; line-height:1.6;">Explore the full repository, commit history, and system architecture on GitHub.</p>
+            <a href="https://github.com/jordan-thirkle/blobz-io-v2" target="_blank" style="display:inline-block; padding:14px 35px; background:#0ff; color:#000; text-decoration:none; font-weight:900; border-radius:30px; transition:0.3s; font-family:'Orbitron'; letter-spacing:1px; box-shadow: 0 0 20px rgba(0,255,255,0.4);">VIEW ON GITHUB</a>
+        </div>
+
+        <div class="hiwm-footer">
+            Built with PlayCanvas, Node.js, and raw ambition.<br>
+            All assets (Audio, Textures, Models) are generated procedurally at runtime.
+        </div>
     `;
+
 
     document.body.appendChild(overlay);
 
