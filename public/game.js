@@ -16,21 +16,40 @@ var AppState = {
   fpsFrames: 0, fpsTime: 0, lastPingTime: 0, sendTimer: 0
 };
 
+// ─── STARTUP CHECK ───────────────────────────────────────────
+function checkLibraries(onReady) {
+  let attempts = 0;
+  const check = setInterval(() => {
+    attempts++;
+    const ready = (typeof pc !== 'undefined') && (typeof MessagePack !== 'undefined') && (typeof io !== 'undefined');
+    if (ready) {
+      clearInterval(check);
+      console.log('✅ ALL LIBRARIES READY (Attempt '+attempts+')');
+      onReady();
+    } else if (attempts > 100) {
+      clearInterval(check);
+      console.error('❌ LIBRARY LOAD TIMEOUT: pc='+(typeof pc)+', msgpack='+(typeof MessagePack)+', io='+(typeof io));
+    }
+  }, 100);
+}
+
 // ─── ENTRY POINTS ─────────────────────────────────────────────
 window.startGame = function() {
-  console.log('▶️ START GAME CLICKED');
-  const nameEl = document.getElementById('nameInput');
-  AppState.myName = (nameEl ? nameEl.value.trim() : 'PLAYER').toUpperCase().slice(0,16);
-  LS.set('name', AppState.myName);
-  LS.set('games', LS.get('games')+1);
-  const startEl = document.getElementById('start');
-  if (startEl) startEl.style.display = 'none';
-  AppState.perfProfile = detectPerformanceProfile();
-  if (typeof MetaSystem !== 'undefined' && MetaSystem.init) MetaSystem.init();
-  if (typeof Audio !== 'undefined' && Audio.init) { Audio.init(); Audio.resume(); }
-  initPC(); connectSocket();
-  console.log('🚀 Emitting JOIN for', AppState.myName);
-  AppState.socket.emit('join', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
+  checkLibraries(() => {
+    console.log('▶️ STARTING GAME...');
+    const nameEl = document.getElementById('nameInput');
+    AppState.myName = (nameEl ? nameEl.value.trim() : 'PLAYER').toUpperCase().slice(0,16);
+    LS.set('name', AppState.myName);
+    LS.set('games', LS.get('games')+1);
+    const startEl = document.getElementById('start');
+    if (startEl) startEl.style.display = 'none';
+    AppState.perfProfile = detectPerformanceProfile();
+    if (typeof MetaSystem !== 'undefined' && MetaSystem.init) MetaSystem.init();
+    if (typeof Audio !== 'undefined' && Audio.init) { Audio.init(); Audio.resume(); }
+    initPC(); connectSocket();
+    console.log('🚀 Emitting JOIN for', AppState.myName);
+    AppState.socket.emit('join', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
+  });
 }
 
 window.respawn = function() {
@@ -38,7 +57,7 @@ window.respawn = function() {
   if (deadEl) deadEl.style.display = 'none';
   AppState.socket.emit('respawn', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
 }
-console.log('✅ startGame defined:', typeof window.startGame);
+console.log('✅ startGame/respawn defined');
 
 // ─── STATS (localStorage) ────────────────────────────────────
 const LS = {
