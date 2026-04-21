@@ -158,8 +158,37 @@ button:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(0,255,255,0.6)}
 .t-text { font-size: 11px; color: #aaa; letter-spacing: 1px; }
 
 /* Countdown */
-#jam-countdown { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); font-family: 'Orbitron'; font-size: 11px; color: #0ff; letter-spacing: 3px; z-index: 1000; text-transform: uppercase; background: rgba(0,0,0,0.4); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(0,255,255,0.2); pointer-events: none; }
-#jam-countdown span { font-weight: 900; margin-left: 10px; color: #fff; }
+#jam-countdown { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); font-family: 'Orbitron'; font-size: 11px; color: #0ff; letter-spacing: 3px; z-index: 1000; text-transform: uppercase; background: rgba(0,0,0,0.6); padding: 10px 25px; border-radius: 30px; border: 1px solid rgba(0,255,255,0.4); pointer-events: none; box-shadow: 0 0 20px rgba(0,255,255,0.2); backdrop-filter: blur(5px); }
+#jam-countdown span { font-weight: 900; margin-left: 10px; color: #fff; text-shadow: 0 0 10px #fff; }
+
+#online-status { position: fixed; top: 25px; right: 30px; font-family: 'Orbitron'; font-size: 10px; color: #0ff; letter-spacing: 2px; z-index: 1000; display: flex; align-items: center; gap: 8px; }
+.status-dot { width: 6px; height: 6px; background: #0f0; border-radius: 50%; box-shadow: 0 0 8px #0f0; animation: blink 1.5s infinite; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+#start { position: fixed; inset: 0; background: radial-gradient(circle at center, rgba(0,20,40,0.8), rgba(0,0,10,0.95)); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+#startTitle { font-family: 'Orbitron'; font-size: 80px; font-weight: 900; color: #fff; letter-spacing: 10px; margin-bottom: 40px; text-shadow: 0 0 30px rgba(0,255,255,0.5); }
+#startTitle span { color: #0ff; }
+#nameInput { background: rgba(255,255,255,0.05); border: 2px solid rgba(0,255,255,0.2); border-radius: 12px; padding: 15px 30px; font-family: 'Orbitron'; font-size: 20px; color: #fff; text-align: center; width: 100%; max-width: 400px; margin-bottom: 30px; transition: 0.3s; outline: none; }
+#nameInput:focus { border-color: #0ff; box-shadow: 0 0 20px rgba(0,255,255,0.3); background: rgba(255,255,255,0.1); }
+
+#modeSelect { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; max-width: 900px; margin-bottom: 40px; }
+.mode-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 25px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; backdrop-filter: blur(10px); }
+.mode-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.3); transform: translateY(-5px); }
+.mode-card.active { border-color: #0ff; background: rgba(0,255,255,0.05); box-shadow: 0 0 30px rgba(0,255,255,0.1); }
+.mode-card.active::after { content: 'SELECTED'; position: absolute; top: 10px; right: 10px; font-size: 8px; color: #0ff; letter-spacing: 2px; font-weight: 900; }
+.mode-name { font-family: 'Orbitron'; font-size: 16px; font-weight: 900; color: #fff; margin-bottom: 8px; letter-spacing: 1px; }
+.mode-desc { font-size: 11px; color: #aaa; line-height: 1.4; margin-bottom: 15px; }
+.mode-callout { font-size: 9px; color: #0ff; opacity: 0.6; letter-spacing: 2px; font-weight: 900; text-transform: uppercase; }
+
+.btn { border: none; border-radius: 12px; font-family: 'Orbitron'; font-weight: 900; cursor: pointer; transition: 0.3s; letter-spacing: 2px; text-transform: uppercase; }
+.menu-actions { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 400px; margin-top: 30px; }
+.btn.primary { background: #0ff; color: #000; font-size: 24px; padding: 22px; box-shadow: 0 0 30px rgba(0,255,255,0.4); animation: btnPulse 2s infinite; }
+@keyframes btnPulse { 0% { box-shadow: 0 0 20px rgba(0,255,255,0.4); } 50% { box-shadow: 0 0 40px rgba(0,255,255,0.7); } 100% { box-shadow: 0 0 20px rgba(0,255,255,0.4); } }
+.btn.primary:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 0 60px rgba(0,255,255,0.8); }
+.btn.secondary { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.2); font-size: 16px; padding: 15px; }
+.btn.secondary:hover { background: rgba(255,255,255,0.15); border-color: #fff; }
+#settingsBtn, #hiwmBtn { background: none; border: none; color: #ffffff44; font-family: 'Orbitron'; font-size: 11px; letter-spacing: 2px; cursor: pointer; transition: 0.3s; margin-top: 5px; }
+#settingsBtn:hover, #hiwmBtn:hover { color: #fff; text-shadow: 0 0 10px #fff; }
 .skin-hexagon { background-image: linear-gradient(30deg, rgba(255,255,255,0.1) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.1) 87.5%, rgba(255,255,255,0.1)), linear-gradient(150deg, rgba(255,255,255,0.1) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.1) 87.5%, rgba(255,255,255,0.1)), linear-gradient(30deg, rgba(255,255,255,0.1) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.1) 87.5%, rgba(255,255,255,0.1)), linear-gradient(150deg, rgba(255,255,255,0.1) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.1) 87.5%, rgba(255,255,255,0.1)), linear-gradient(60deg, rgba(255,255,255,0.1) 25%, transparent 25.5%, transparent 75%, rgba(255,255,255,0.1) 75%, rgba(255,255,255,0.1)), linear-gradient(60deg, rgba(255,255,255,0.1) 25%, transparent 25.5%, transparent 75%, rgba(255,255,255,0.1) 75%, rgba(255,255,255,0.1)); background-size: 40px 70px; }
 .skin-lightning { background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.2) 50%, transparent 55%); background-size: 20px 20px; }
 .skin-checkers { background-image: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.1) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.1) 75%); background-size: 20px 20px; }
@@ -167,52 +196,100 @@ button:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(0,255,255,0.6)}
 @media (max-width: 500px) {
   #touch-overlay { transform: scale(0.75); transform-origin: bottom right; }
 }
-</style>
+#home-layout { position: fixed; inset: 0; display: flex; align-items: stretch; justify-content: stretch; z-index: 100; background: radial-gradient(circle at center, rgba(0,20,40,0.8), rgba(0,0,10,0.95)); padding: 40px; gap: 40px; }
+#home-left, #home-right { width: 350px; display: flex; flex-direction: column; gap: 20px; }
+#home-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+/* Global Chat */
+#global-chat { flex: 1; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,255,255,0.1); border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(10px); }
+#chat-header { padding: 15px; background: rgba(0,255,255,0.05); font-family: 'Orbitron'; font-size: 11px; color: #0ff; letter-spacing: 2px; border-bottom: 1px solid rgba(0,255,255,0.1); }
+#chat-messages { flex: 1; padding: 15px; overflow-y: auto; font-size: 12px; line-height: 1.5; color: #ccc; }
+.chat-msg { margin-bottom: 12px; border-left: 2px solid rgba(0,255,255,0.2); padding-left: 10px; }
+.chat-meta { font-size: 9px; color: #666; margin-bottom: 2px; display: flex; justify-content: space-between; }
+.chat-name { color: #0ff; font-weight: 900; }
+#chat-input-area { padding: 10px; background: rgba(0,0,0,0.3); display: flex; gap: 10px; }
+#chat-input { flex: 1; background: none; border: 1px solid #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 12px; }
+
+/* Hall of Fame */
+#hall-of-fame { background: rgba(0,0,0,0.4); border: 1px solid rgba(0,255,255,0.1); border-radius: 15px; padding: 20px; backdrop-filter: blur(10px); }
+.hof-title { font-family: 'Orbitron'; font-size: 12px; color: #ffcc00; letter-spacing: 2px; margin-bottom: 15px; text-align: center; }
+.hof-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ffffff05; font-size: 11px; }
+.hof-rank { color: #ffffff44; width: 25px; }
+.hof-name { flex: 1; color: #fff; font-weight: 700; }
+.hof-score { color: #0ff; font-family: 'Orbitron'; }
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <div id="jam-countdown">Vibe Jam 2026 Ends In: <span id="timer-val">00:00:00:00</span></div>
+<div id="online-status"><div class="status-dot"></div> <span id="player-count">1</span> PLAYERS ONLINE</div>
 
-<div id="start">
-    <div id="startTitle">BLOBZ.IO <span>V2</span></div>
-    <input type="text" id="nameInput" placeholder="ENTER NAME..." maxlength="16">
-    <div id="modeSelect">
-      <div class="mode-card active" onclick="selectMode('ffa', this)">
-        <div class="mode-name">FREE FOR ALL</div>
-        <div class="mode-desc">Standard survival. Eat or be eaten.</div>
-        <div class="mode-callout">KING OF THE HILL</div>
-      </div>
-      <div class="mode-card" onclick="selectMode('team', this)">
-        <div class="mode-name">TEAM ARENA</div>
-        <div class="mode-desc">Red vs Blue. Capture the Flag Orb.</div>
-        <div class="mode-callout">TEAMWORK REQUIRED</div>
-      </div>
-      <div class="mode-card" onclick="selectMode('br', this)">
-        <div class="mode-name">BATTLE ROYALE</div>
-        <div class="mode-desc">Last blob standing. Zone shrinks.</div>
-        <div class="mode-callout">SURVIVE THE STORM</div>
-      </div>
-    </div>
-      </div>
-      <div class="menu-actions">
-        <button id="playBtn" class="btn primary" onclick="startGame()">PLAY NOW</button>
-        <button class="btn secondary" onclick="HudSystem.openCustomize()">CUSTOMIZE</button>
-        <button id="settingsBtn" onclick="HudSystem.openSettings()">SETTINGS</button>
-        <button id="hiwmBtn" onclick="window.openHowItWasMade && window.openHowItWasMade()">HOW IT WAS MADE</button>
-      </div>
-      
-    <div id="how-to-play">
-        <div class="t-item"><div class="t-icon">M</div><div class="t-text"><b>MOVE</b><br>Follow your cursor</div></div>
-        <div class="t-item"><div class="t-icon">SPC</div><div class="t-text"><b>SPLIT</b><br>Attack smaller blobs</div></div>
-        <div class="t-item"><div class="t-icon">W</div><div class="t-text"><b>BOOST</b><br>Trade mass for speed</div></div>
-        <div class="t-item"><div class="t-icon">Q</div><div class="t-text"><b>ABILITY</b><br>Use your unique power</div></div>
+<div id="home-layout">
+    <!-- LEFT: CHAT -->
+    <div id="home-left">
+        <div id="global-chat">
+            <div id="chat-header">GLOBAL COMMS</div>
+            <div id="chat-messages" id="global-messages"></div>
+            <div id="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Say something..." maxlength="100">
+                <button onclick="sendGlobalChat()" style="background:#0ff; border:none; border-radius:4px; width:35px; height:32px; cursor:pointer;">▶</button>
+            </div>
+        </div>
+        <div id="how-to-play" style="margin-top:0">
+            <div class="t-item"><div class="t-icon">M</div><div class="t-text"><b>MOVE</b></div></div>
+            <div class="t-item"><div class="t-icon">Q</div><div class="t-text"><b>POWER</b></div></div>
+        </div>
     </div>
 
-    <div id="startStats">
-      <div class="ss-item">BEST: <span id="ss_best">0</span></div>
-      <div class="ss-item">KILLS: <span id="ss_kills">0</span></div>
-      <div class="ss-item">GAMES: <span id="ss_games">0</span></div>
+    <!-- CENTER: MAIN MENU -->
+    <div id="home-center">
+        <div id="startTitle">BLOBZ.IO <span>V2</span></div>
+        <input type="text" id="nameInput" placeholder="ENTER NAME..." maxlength="16">
+        <div id="modeSelect">
+          <div class="mode-card active" onclick="selectMode('ffa', this)">
+            <div class="mode-name">FREE FOR ALL</div>
+            <div class="mode-desc">Eat or be eaten.</div>
+            <div class="mode-callout">FFA</div>
+          </div>
+          <div class="mode-card" onclick="selectMode('team', this)">
+            <div class="mode-name">TEAM ARENA</div>
+            <div class="mode-desc">Red vs Blue.</div>
+            <div class="mode-callout">TEAMS</div>
+          </div>
+          <div class="mode-card" onclick="selectMode('br', this)">
+            <div class="mode-name">BATTLE ROYALE</div>
+            <div class="mode-desc">Shrinking zone.</div>
+            <div class="mode-callout">BATTLE</div>
+          </div>
+        </div>
+        <div class="menu-actions">
+            <button id="playBtn" class="btn primary" onclick="startGame()">PLAY NOW</button>
+            <button class="btn secondary" onclick="HudSystem.openCustomize()">CUSTOMIZE LOADOUT</button>
+            <div style="display:flex; justify-content:center; gap:20px; margin-top:10px;">
+               <button id="settingsBtn" onclick="HudSystem.openSettings()">SETTINGS</button>
+               <button id="hiwmBtn" onclick="window.openHowItWasMade && window.openHowItWasMade()">BEHIND CODE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: PROGRESSION & HOF -->
+    <div id="home-right">
+        <div id="hall-of-fame">
+            <div class="hof-title">HALL OF FAME</div>
+            <div id="hof-list">
+                <div class="hof-item"><span class="hof-rank">#1</span> <span class="hof-name">LOADING...</span></div>
+            </div>
+        </div>
+        <div id="startStats" style="display:flex; flex-direction:column; gap:15px; width:100%; margin-top:0;">
+          <div class="ss-card">
+             <div class="ss-label">TOTAL XP</div>
+             <div class="ss-value" id="ss_xp">0</div>
+          </div>
+          <div class="ss-card">
+             <div class="ss-label">LEVEL <span id="ss_level">1</span></div>
+             <div id="ss_xp_bar"><div id="ss_xp_fill" style="width:0%"></div></div>
+          </div>
+        </div>
     </div>
 </div>
 
@@ -289,6 +366,11 @@ button:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(0,255,255,0.6)}
       if (target) target.innerHTML = "SUBMISSION CLOSED";
     }
   }, 1000);
+
+  // Global Chat Enter Key
+  document.getElementById('chat-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') window.sendGlobalChat();
+  });
 </script>
 </body>
 </html>

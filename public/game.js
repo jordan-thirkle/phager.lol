@@ -101,9 +101,84 @@ function shake(amt){ AppState.shakeAmt = Math.max(AppState.shakeAmt, amt); }
 // ─── PLAYCANVAS INIT ──────────────────────────────────────────
 function initPC() {
   const canvas = document.getElementById('c');
-  AppState.app = new pc.Application(canvas);
+  const app = new pc.Application(canvas, {
+      mouse: new pc.Mouse(canvas),
+      touch: !!('ontouchstart' in window) ? new pc.TouchDevice(canvas) : null,
+      keyboard: new pc.Keyboard(window),
+      elementInput: new pc.ElementInput(canvas)
+  });
+  AppState.app = app;
   AppState.app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
   AppState.app.setCanvasResolution(pc.RESOLUTION_AUTO);
+
+  AppState.socket.on('playerCount', count => {
+      const el = document.getElementById('player-count');
+      if (el) el.textContent = count;
+  });
+
+  // Global Chat Listeners
+  AppState.socket.on('chat_history', msgs => {
+      const container = document.getElementById('chat-messages');
+      if (container) {
+          container.innerHTML = '';
+          msgs.forEach(addChatMessage);
+      }
+  });
+
+  AppState.socket.on('new_global_chat', msg => {
+      addChatMessage(msg);
+  });
+
+  function addChatMessage(msg) {
+      const container = document.getElementById('chat-messages');
+      if (!container) return;
+      const div = document.createElement('div');
+      div.className = 'chat-msg';
+      div.innerHTML = `
+          <div class="chat-meta">
+              <span class="chat-name">${msg.name}</span>
+              <span>${msg.time}</span>
+          </div>
+          <div>${msg.text}</div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+  }
+
+  window.sendGlobalChat = function() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+      const meta = window.MetaSystem.get();
+      AppState.socket.emit('send_global_chat', { name: meta.name || 'ANON', text });
+      input.value = '';
+  };
+
+  // Hall of Fame Mock
+  const hof = [
+      { name: 'APEX_PREDATOR', score: 145200 },
+      { name: 'VOID_WALKER', score: 98400 },
+      { name: 'GLITCH_KING', score: 76100 },
+      { name: 'NEON_BLOB', score: 54300 },
+      { name: 'GHOST_CELL', score: 42100 }
+  ];
+  const hofList = document.getElementById('hof-list');
+  if (hofList) {
+      hofList.innerHTML = hof.map((h, i) => `
+          <div class="hof-item">
+              <span class="hof-rank">#${i+1}</span>
+              <span class="hof-name">${h.name}</span>
+              <span class="hof-score">${h.score.toLocaleString()}</span>
+          </div>
+      `).join('');
+  }
+
+  const meta = window.MetaSystem.get();
+  const levelData = window.MetaSystem.getLevelInfo(meta.xp);
+  document.getElementById('ss_xp').textContent = meta.xp;
+  document.getElementById('ss_level').textContent = levelData.level;
+  document.getElementById('ss_kills').textContent = meta.bestKills;
+  document.getElementById('ss_xp_fill').style.width = (levelData.progress * 100) + '%';
 
   AppState.cameraEnt = new pc.Entity('cam');
   AppState.cameraEnt.addComponent('camera', { clearColor:new pc.Color(0.02,0.02,0.07), nearClip:0.5, farClip:9000, fov:62 });
