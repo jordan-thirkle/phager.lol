@@ -1,4 +1,4 @@
-// ─── BLOBZ.IO game.js (v2 Modular) ────────────────────────────
+// ─── PHAGE.LOL game.js (v2 Modular) ────────────────────────────
 console.log('📦 GAME.JS LOADED');
 var ARENA = 3000;
 var NEON = ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff','#88ff00','#0088ff','#ff4488','#ffbb00'];
@@ -6,11 +6,18 @@ var NEON = ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff','#88ff00
 var gridLines = [];
 var AppState = {
   app: null, socket: null, cameraEnt: null,
-  myId: null, myName: '', myColor: NEON[Math.floor(Math.random()*NEON.length)],
+  myId: null,
+  myScore: 0,
+  myKills: 0,
+  shakeAmt: 0,
+  shakeVec: new pc.Vec3(),
+  aberrationAmt: 0,
+  batchGroups: {},
+  myName: '', myColor: NEON[Math.floor(Math.random()*NEON.length)],
   gameActive: false,
-  gameState: { players: [], leaderboard: [] },
+  gameState: { players: [], leaderboard: [] }, arenaSize: 3000,
   pEnts: {}, fEnts: {}, vEnts: {},
-  animTime: 0, cam: { x:0, z:0, h:700 }, shakeAmt: 0,
+  animTime: 0, cam: { x:0, z:0, h:700 },
   myStats: { xp:0, kills:0, peakMass:0, sessionKills:0 },
   input: { dx:0, dz:0, w:0, a:0, s:0, d:0, split:false, boost:false },
   fpsFrames: 0, fpsTime: 0, lastPingTime: 0, sendTimer: 0
@@ -34,6 +41,19 @@ function checkLibraries(onReady) {
 }
 
 // ─── ENTRY POINTS ─────────────────────────────────────────────
+window.onload = () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('portal') === 'true') {
+      const name = params.get('username') || 'PORTAL_CELL';
+      const color = params.get('color') || '#00ffff';
+      const input = document.getElementById('nameInput');
+      if (input) input.value = name;
+      AppState.myName = name;
+      AppState.myColor = color;
+      setTimeout(() => window.startGame(), 1000); 
+  }
+};
+
 window.startGame = function() {
   checkLibraries(() => {
     console.log('▶️ STARTING GAME...');
@@ -43,6 +63,21 @@ window.startGame = function() {
     
     const homeEl = document.getElementById('home-layout');
     if (homeEl) homeEl.style.display = 'none';
+
+    // Pre-match briefing countdown
+    const overlay = document.createElement('div');
+    overlay.style = 'position:fixed; inset:0; display:flex; align-items:center; justify-content:center; font-family:Orbitron; font-size:100px; color:var(--cyan); z-index:10000; text-shadow:0 0 50px var(--cyan); pointer-events:none; font-weight:900;';
+    document.body.appendChild(overlay);
+    let count = 3;
+    const timer = setInterval(() => {
+        overlay.textContent = count > 0 ? count : 'INFECT!';
+        if (count < 0) {
+            clearInterval(timer);
+            document.body.removeChild(overlay);
+        }
+        count--;
+    }, 600);
+
     
     AppState.perfProfile = detectPerformanceProfile();
     if (typeof MetaSystem !== 'undefined' && MetaSystem.init) MetaSystem.init();
@@ -68,9 +103,18 @@ window.selectMode = function(mode, el) {
 window.respawn = function() {
   const deadEl = document.getElementById('dead');
   if (deadEl) deadEl.style.display = 'none';
-  AppState.socket.emit('respawn', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
+  AppState.socket.emit('respawn', MessagePack.encode({ 
+      name: AppState.myName, 
+      color: AppState.myColor,
+      mode: AppState.selectedMode || 'ffa',
+      ability: AppState.selectedAbility || 'SHIELD'
+  }));
 }
-console.log('✅ startGame/respawn defined');
+window.toggleFullscreen = function() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else if (document.exitFullscreen) document.exitFullscreen();
+}
+console.log('✅ startGame/respawn/fullscreen defined');
 
 // ─── INITIAL LOAD SEQUENCE ────────────────────────────────────
 function onInitialLoad() {
@@ -157,39 +201,147 @@ function initPC() {
   dl.setEulerAngles(55,30,0); AppState.app.root.addChild(dl);
   AppState.app.scene.ambientLight = new pc.Color(0.05,0.06,0.18);
 
-  buildArena(); Particles.init(AppState.app); MinimapSystem.init(); InputSystem.init(AppState);
+  Particles.init(AppState.app); MinimapSystem.init(); InputSystem.init(AppState);
+
+  // Optimized Batching
+  const foodGroup = AppState.app.batcher.addGroup("Food", true, 1000);
+  const virusGroup = AppState.app.batcher.addGroup("Viruses", true, 100);
+  AppState.batchGroups = { food: foodGroup.id, virus: virusGroup.id };
+
+
+  if (typeof initVibeJamPortals !== 'undefined') {
+    initVibeJamPortals({
+      scene: AppState.app.root,
+      getPlayer: () => {
+          const me = AppState.gameState.players.find(p => p && p.id === AppState.myId);
+          if (me && AppState.pEnts[me.id]) return AppState.pEnts[me.id];
+          return null;
+      },
+      spawnPoint:   { x: 0, y: 0, z: 0 },
+      exitPosition: { x: -AppState.arenaSize*0.4, y: 10, z: -AppState.arenaSize*0.4 },
+      onExit: () => {
+          const me = AppState.gameState.players.find(p => p && p.id === AppState.myId);
+          const mass = me ? me.blobs.reduce((s,b)=>s+b.mass,0) : 100;
+          const url = new URL('https://vibej.am/portal/2026');
+          url.searchParams.set('username', AppState.myName);
+          url.searchParams.set('color', AppState.myColor);
+          url.searchParams.set('ref', 'phage.lol');
+          url.searchParams.set('hp', Math.min(100, Math.floor(mass / 10)));
+          window.location.href = url.toString();
+      }
+    });
+  }
 
   AppState.app.on('update', dt => { 
+    if (typeof animateVibeJamPortals !== 'undefined') animateVibeJamPortals(dt);
     if (AppState.perfProfile !== 'LOW') {
         Particles.update(dt);
     }
+    
+    // Shake & VFX
+    if (AppState.shakeAmt > 0) {
+        AppState.shakeAmt -= dt * 40;
+        if (AppState.shakeAmt < 0) AppState.shakeAmt = 0;
+        AppState.shakeVec.set((Math.random()-0.5)*AppState.shakeAmt, (Math.random()-0.5)*AppState.shakeAmt, (Math.random()-0.5)*AppState.shakeAmt);
+    }
+    
+    if (AppState.aberrationAmt > 0) {
+        AppState.aberrationAmt -= dt * 2;
+        if (AppState.aberrationAmt < 0) AppState.aberrationAmt = 0;
+        const scan = document.getElementById('vfx-scanlines');
+        if (scan) scan.style.filter = `contrast(${1 + AppState.aberrationAmt*0.5}) brightness(${1 + AppState.aberrationAmt*0.2})`;
+    }
+
+    if (AppState.cameraEnt) {
+        let targetX = AppState.cam.x, targetZ = AppState.cam.z;
+        
+        // Follow leader if dead
+        if (!AppState.gameActive && AppState.spectatingId) {
+            const spec = AppState.gameState.players.find(p => p.id === AppState.spectatingId);
+            if (spec && spec.blobs && spec.blobs[0]) {
+                targetX = spec.blobs[0].x;
+                targetZ = spec.blobs[0].z;
+            }
+        }
+
+        const camPos = AppState.cam.pos || new pc.Vec3(0,700,0);
+        // Smooth pan toward target
+        AppState.cam.x += (targetX - AppState.cam.x) * (5 * dt);
+        AppState.cam.z += (targetZ - AppState.cam.z) * (5 * dt);
+        
+        AppState.cameraEnt.setPosition(AppState.cam.x + AppState.shakeVec.x, 700 + AppState.shakeVec.y, AppState.cam.z + AppState.shakeVec.z);
+    }
+
+    window.HudSystem.updateCombatPopups(AppState.cameraEnt, AppState.app);
+
+    // Culling & Lerp entities
+    const camPos = AppState.cam.pos || new pc.Vec3(0,700,0);
+    const CULL_DIST_SQ = 1200 * 1200; // Only render food within this radius
+
+    for (const fid in AppState.fEnts) {
+        const ent = AppState.fEnts[fid];
+        const distSq = ent.getPosition().distanceSq(camPos);
+        ent.enabled = (distSq < CULL_DIST_SQ);
+    }
+    
     if(AppState.gameActive) gameLoop(dt); 
   });
   AppState.app.start();
 }
 
+function clearGame() {
+    AppState.gameActive = false;
+    // Destroy player entities
+    for (const id in AppState.pEnts) {
+        if (AppState.pEnts[id].ent) AppState.pEnts[id].ent.destroy();
+    }
+    AppState.pEnts = {};
+    // Destroy food
+    for (const id in AppState.fEnts) {
+        if (AppState.fEnts[id]) AppState.fEnts[id].destroy();
+    }
+    AppState.fEnts = {};
+    // Destroy viruses
+    for (const id in AppState.vEnts) {
+        if (AppState.vEnts[id]) AppState.vEnts[id].destroy();
+    }
+    AppState.vEnts = {};
+    
+    // Clear nametags
+    const nt = document.getElementById('nametags');
+    if (nt) nt.innerHTML = '';
+}
+
+var arenaBuilt = false;
 function buildArena() {
-  const fe = new pc.Entity('floor'); fe.addComponent('model',{type:'plane'}); fe.setLocalScale(ARENA,1,ARENA);
+  if (arenaBuilt) return;
+  arenaBuilt = true;
+  const size = AppState.arenaSize || 3000;
+  const fe = new pc.Entity('floor'); fe.addComponent('model',{type:'plane'}); fe.setLocalScale(size,1,size);
   const fm = new pc.StandardMaterial(); fm.diffuse=new pc.Color(0.02,0.02,0.06); fm.emissive=new pc.Color(0.01,0.01,0.04); fm.update();
   fe.model.meshInstances[0].material=fm; AppState.app.root.addChild(fe);
 
+  const fe2 = new pc.Entity('floor2'); fe2.addComponent('model',{type:'plane'}); fe2.setLocalScale(size*2.5,1,size*2.5);
+  const fm2 = new pc.StandardMaterial(); fm2.diffuse=new pc.Color(0.01,0.01,0.03); fm2.update();
+  fe2.model.meshInstances[0].material=fm2; fe2.setPosition(0,-2,0); AppState.app.root.addChild(fe2);
+
   const gm = new pc.StandardMaterial(); gm.emissive=new pc.Color(0.0,0.12,0.38); gm.emissiveIntensity=1.2; gm.update();
-  const step=150, half=ARENA/2;
+  const step=150, half=size/2;
   for(let i=-half;i<=half;i+=step){
-    const vl=new pc.Entity();vl.addComponent('model',{type:'box'});vl.setLocalScale(1.5,2,ARENA);vl.setPosition(i,1.5,0);vl.model.meshInstances[0].material=gm;AppState.app.root.addChild(vl);
-    const hl=new pc.Entity();hl.addComponent('model',{type:'box'});hl.setLocalScale(ARENA,2,1.5);hl.setPosition(0,1.5,i);hl.model.meshInstances[0].material=gm;AppState.app.root.addChild(hl);
+    const vl=new pc.Entity();vl.addComponent('model',{type:'box'});vl.setLocalScale(1.5,2,size);vl.setPosition(i,1.5,0);vl.model.meshInstances[0].material=gm;AppState.app.root.addChild(vl);
+    const hl=new pc.Entity();hl.addComponent('model',{type:'box'});hl.setLocalScale(size,2,1.5);hl.setPosition(0,1.5,i);hl.model.meshInstances[0].material=gm;AppState.app.root.addChild(hl);
     gridLines.push(vl, hl);
   }
 
   const wm=new pc.StandardMaterial();wm.emissive=new pc.Color(0.0,0.5,1.0);wm.emissiveIntensity=3;wm.update();
-  [[0,100,half,ARENA,200,8],[0,100,-half,ARENA,200,8],[half,100,0,8,200,ARENA],[-half,100,0,8,200,ARENA]].forEach(([x,y,z,w,h,d])=>{
+  [[0,100,half,size,200,8],[0,100,-half,size,200,8],[half,100,0,8,200,size],[-half,100,0,8,200,size]].forEach(([x,y,z,w,h,d])=>{
     const w2=new pc.Entity();w2.addComponent('model',{type:'box'});w2.setPosition(x,y,z);w2.setLocalScale(w,h,d);w2.model.meshInstances[0].material=wm;AppState.app.root.addChild(w2);
   });
   
   const sm=new pc.StandardMaterial();sm.emissive=new pc.Color(0.4,0.4,1);sm.emissiveIntensity=4;sm.update();
   for(let i=0;i<150;i++){
     const s=new pc.Entity();s.addComponent('model',{type:'sphere'});
-    s.setPosition((Math.random()-0.5)*ARENA*1.5,(Math.random()*200)+50,(Math.random()-0.5)*ARENA*1.5);
+    s.setPosition((Math.random()-0.5)*size*1.5,(Math.random()*200)+50,(Math.random()-0.5)*size*1.5);
     const sz=Math.random()*3+1;s.setLocalScale(sz,sz,sz);
     s.model.meshInstances[0].material=sm;AppState.app.root.addChild(s);
   }
@@ -214,13 +366,16 @@ function getOrMakeBlobEnt(key, pid, color) {
   const gl=new pc.Entity(); const c=hexToRgb01(color);
   gl.addComponent('light',{type:'point',color:new pc.Color(c.r,c.g,c.b),intensity:5,range:180});
   e.addChild(gl); AppState.app.root.addChild(e);
-  AppState.pEnts[key]={ent:e,tx:0,ty:0,tz:0}; return AppState.pEnts[key];
+  AppState.pEnts[key]={ent:e,tx:0,ty:0,tz:0, color: color}; return AppState.pEnts[key];
 }
 
+var foodMatCache = {};
 function getOrMakeFoodEnt(id, color) {
   if(AppState.fEnts[id]) return AppState.fEnts[id];
   const e=new pc.Entity(`f_${id}`); e.addComponent('model',{type:'sphere'});
-  e.model.meshInstances[0].material=makeMat(color,3.5);
+  if (!foodMatCache[color]) foodMatCache[color] = makeMat(color, 3.5);
+  e.model.meshInstances[0].material = foodMatCache[color];
+  e.model.batchGroupId = AppState.batchGroups.food;
   AppState.app.root.addChild(e); AppState.fEnts[id]=e; return e;
 }
 
@@ -228,6 +383,7 @@ function getOrMakeVirusEnt(id) {
   if(AppState.vEnts[id]) return AppState.vEnts[id];
   const e=new pc.Entity(`v_${id}`); e.addComponent('model',{type:'sphere'});
   e.model.meshInstances[0].material=makeMat('#00ff44',2.8);
+  e.model.batchGroupId = AppState.batchGroups.virus;
   e.setLocalScale(25,25,25); AppState.app.root.addChild(e);
   AppState.vEnts[id]=e; return e;
 }
@@ -249,7 +405,8 @@ function gameLoop(dt) {
     if (input.ability) { AppState.socket.emit('ability'); }
   }
 
-  const me = AppState.gameState.players.find(p=>p.id===AppState.myId);
+  if (!AppState.gameState || !AppState.gameState.players) return;
+  const me = AppState.gameState.players.find(p => p && p.id === AppState.myId);
   if (!me || !me.blobs || !me.blobs.length) return;
 
   let totalMass = me.blobs.reduce((s,b)=>s+b.mass,0);
@@ -262,8 +419,13 @@ function gameLoop(dt) {
 
   // Stats update
   AppState.myStats.peakMass = Math.max(AppState.myStats.peakMass, Math.floor(totalMass));
-  document.getElementById('massDisplay').textContent=`● ${Math.floor(totalMass)}`;
-  document.getElementById('massDisplay').style.color=me.color;
+  const elMass = document.getElementById('massDisplay');
+  if (elMass) {
+      elMass.textContent = `● BIOMASS: ${Math.floor(totalMass)}`;
+      elMass.style.color = me.color;
+  }
+  window.HudSystem.updateHints(totalMass);
+
   if (me.xp !== undefined && me.xp !== AppState.myStats.xp) { 
     const diff = me.xp - AppState.myStats.xp; 
     AppState.myStats.xp = me.xp; 
@@ -271,7 +433,7 @@ function gameLoop(dt) {
     if(diff>0) HudSystem.flashXP(diff); 
   }
 
-  // Achievement: Mass Monster
+  // Achievement: Biomass Monster
   if (totalMass >= 5000) MetaSystem.unlockAchievement(2);
   // Achievement: Pacifist
   if (totalMass >= 2000 && AppState.myStats.sessionKills === 0) MetaSystem.unlockAchievement(8);
@@ -279,13 +441,14 @@ function gameLoop(dt) {
   // Entities Sync
   const seenKeys = new Set();
   for (const p of AppState.gameState.players) {
-    if (!p.blobs) continue;
+    if (!p || !p.blobs) continue;
     // Team coloring
     if (p.team) {
       if (p.team === 'red') p.color = '#ff0044';
       else if (p.team === 'blue') p.color = '#0088ff';
     }
     for (const blob of p.blobs) {
+      if (!blob) continue;
       const key = blob.id || `${p.id}_0`;
       seenKeys.add(key);
       const pEnt = getOrMakeBlobEnt(key, p.id, p.color||'#00ffff');
@@ -415,35 +578,39 @@ function connectSocket() {
   });
 
   AppState.socket.on('init', buf => {
+    clearGame();
     const data = MessagePack.decode(new Uint8Array(buf));
     AppState.myId = data.id;
+    AppState.arenaSize = data.arenaSize || 3000;
+    buildArena();
     AppState.gameActive = true;
-    document.getElementById('hud').style.display = 'block';
+    document.getElementById('hud').style.display = 'grid'; // Grid HUD
     Audio.resume(); Audio.spawn();
     Particles.spawnEffect(0, 10, 0, AppState.myColor);
+
+    // Initial entities
+    if (data.foods) {
+      Object.entries(data.foods).forEach(([fid, f]) => {
+        const e = getOrMakeFoodEnt(fid, f.color);
+        const r = massToRadius(f.mass);
+        e.setLocalScale(r*2, r*2, r*2); e.setPosition(f.x, r, f.z);
+      });
+    }
+    if (data.viruses) {
+      Object.entries(data.viruses).forEach(([vid, v]) => {
+        const e = getOrMakeVirusEnt(vid);
+        e.setPosition(v.x, 20, v.z);
+      });
+    }
   });
 
   AppState.socket.on('world_state', buf => {
     const data = MessagePack.decode(new Uint8Array(buf));
     AppState.gameState.players = data.players;
     AppState.gameState.leaderboard = data.leaderboard;
-    // Sync foods and viruses
-    if (data.foods) {
-      for (const fid in data.foods) {
-        const f = data.foods[fid];
-        const e = getOrMakeFoodEnt(fid, f.color);
-        const r = massToRadius(f.mass);
-        e.setLocalScale(r*2, r*2, r*2); e.setPosition(f.x, r, f.z);
-      }
-    }
-    if (data.viruses) {
-      for (const vid in data.viruses) {
-        const v = data.viruses[vid];
-        const e = getOrMakeVirusEnt(vid);
-        e.setPosition(v.x, 20, v.z);
-      }
-    }
-    if (AppState.lastPingTime) document.getElementById('pingCount').textContent = Date.now() - AppState.lastPingTime;
+    
+    const elPing = document.getElementById('pingCount');
+    if (AppState.lastPingTime && elPing) elPing.textContent = Date.now() - AppState.lastPingTime;
     AppState.lastPingTime = Date.now();
   });
 
@@ -451,32 +618,46 @@ function connectSocket() {
     const data = MessagePack.decode(new Uint8Array(buf));
     AppState.gameState.players = data.players;
     AppState.gameState.leaderboard = data.leaderboard;
-    if (AppState.lastPingTime) document.getElementById('pingCount').textContent = Date.now() - AppState.lastPingTime;
+    const elPing = document.getElementById('pingCount');
+    if (AppState.lastPingTime && elPing) elPing.textContent = Date.now() - AppState.lastPingTime;
     AppState.lastPingTime = Date.now();
   });
 
   AppState.socket.on('foodSpawn', f => { const e=getOrMakeFoodEnt(f.id,f.color); const r=massToRadius(f.mass); e.setLocalScale(r*2,r*2,r*2); e.setPosition(f.x,r,f.z); });
   AppState.socket.on('foodEaten', ({id}) => { if(AppState.fEnts[id]){AppState.fEnts[id].destroy();delete AppState.fEnts[id];} });
+  AppState.socket.on('virusSpawn', v => { const e=getOrMakeVirusEnt(v.id); e.setPosition(v.x,20,v.z); });
+  AppState.socket.on('virusEaten', ({id}) => { if(AppState.vEnts[id]){AppState.vEnts[id].destroy();delete AppState.vEnts[id];} });
 
-  AppState.socket.on('feedbackEatFood', ({x,z}) => { Audio.eatFood(); Particles.eatFood(x,5,z,AppState.myColor); shake(4); });
+  AppState.socket.on('feedbackEatFood', ({x,z,mass}) => { 
+    if (window.Audio) Audio.eatFood(); 
+    if (window.Particles) Particles.eatFood(x,5,z,AppState.myColor); 
+    AppState.shakeAmt = Math.max(AppState.shakeAmt, 4);
+    window.HudSystem.spawnCombatPopup(new pc.Vec3(x, 10, z), `+${Math.floor(mass)}`, '#00ff66');
+  });
+
   AppState.socket.on('feedbackEatPlayer', ({x,z,mass,streak,color}) => {
-    Audio.eatPlayer(); Particles.eatPlayer(x,5,z,color); shake(18);
+    if (window.Audio) Audio.eatPlayer(); 
+    if (window.Particles) Particles.eatPlayer(x,5,z,color); 
+    AppState.shakeAmt = Math.max(AppState.shakeAmt, 20);
+    AppState.aberrationAmt = 0.5;
+    window.HudSystem.spawnCombatPopup(new pc.Vec3(x, 20, z), `ENGULFED +${Math.floor(mass)}`, '#00ffff');
+    
     AppState.myStats.sessionKills++; 
-    HudSystem.showStreak(streak, AppState.myColor); Audio.streak(streak);
-    // Achievement: First Blood
-    MetaSystem.unlockAchievement(1);
+    if (window.HudSystem) HudSystem.showStreak(streak, AppState.myColor); 
+    if (window.Audio) Audio.streak(streak);
+    window.MetaSystem.unlockAchievement('FIRST_BLOOD');
   });
+
   AppState.socket.on('feedbackBoost', () => { 
-    Particles.splitEffect(AppState.cam.x, 5, AppState.cam.z, AppState.myColor); 
-    AppState.myStats.boostCount = (AppState.myStats.boostCount || 0) + 1;
-    if (AppState.myStats.boostCount >= 50) MetaSystem.unlockAchievement(5);
+    if (window.Particles) Particles.splitEffect(AppState.cam.x, 5, AppState.cam.z, AppState.myColor); 
   });
-  AppState.socket.on('splitEffect', () => { Audio.split(); });
-  AppState.socket.on('decoyHit', () => { shake(10); });
+
+  AppState.socket.on('splitEffect', () => { if (window.Audio) Audio.split(); });
+  AppState.socket.on('decoyHit', () => { Appstate.shakeAmt = 15; });
 
   AppState.socket.on('ability_event', ({ playerId, ability, ts }) => {
     // Trigger SFX/VFX based on ability type
-    const p = AppState.gameState.players.find(x => x.id === playerId);
+    const p = AppState.gameState.players.find(x => x && x.id === playerId);
     const pos = p && p.blobs && p.blobs[0] ? p.blobs[0] : { x:0, z:0 };
 
     if (ability === 'SHIELD') { 
@@ -498,7 +679,11 @@ function connectSocket() {
   });
 
   AppState.socket.on('kill_feed', ({killer, victim}) => {
-    HudSystem.addKill(`${killer} ate ${victim}`);
+    const isXK = killer && killer.startsWith('@');
+    const isXV = victim && victim.startsWith('@');
+    const kLink = isXK ? `<a href="https://x.com/${killer.slice(1)}" target="_blank" style="color:inherit">${killer}</a>` : killer;
+    const vLink = isXV ? `<a href="https://x.com/${victim.slice(1)}" target="_blank" style="color:inherit">${victim}</a>` : victim;
+    HudSystem.addKill(`${kLink} engulfed ${vLink}`);
   });
 
   AppState.socket.on('virusHit', ({x,z}) => { 
@@ -508,16 +693,23 @@ function connectSocket() {
     if (AppState.myStats.virusHits >= 10) MetaSystem.unlockAchievement(4);
   });
 
-    AppState.socket.on('dead', ({killedBy, killerSocketId}) => {
+    AppState.socket.on('dead', ({killedBy, killerSocketId, rank}) => {
     AppState.gameActive = false;
     AppState.spectating = true;
-    AppState.spectateId = killerSocketId || AppState.gameState.players.sort((a,b)=>b.score-a.score)[0]?.id;
+    const topPlayer = AppState.gameState.players.filter(p => p).sort((a,b)=>b.score-a.score)[0];
+    AppState.spectateId = killerSocketId || (topPlayer ? topPlayer.id : null);
     
     Audio.die(); shake(40);
-    document.getElementById('killedByMsg').textContent = `DEVOURED BY ${(killedBy||'?').toUpperCase()}`;
-    document.getElementById('d_mass').textContent = AppState.myStats.peakMass;
-    document.getElementById('d_kills').textContent = AppState.myStats.sessionKills;
-    document.getElementById('d_xp').textContent = AppState.myStats.xp;
+    const msg = document.getElementById('killedByMsg'); 
+    if (msg) {
+        const isX = killedBy && killedBy.startsWith('@');
+        const kDisplay = isX ? `<a href="https://x.com/${killedBy.slice(1)}" target="_blank" style="color:inherit; text-decoration:underline;">${killedBy.toUpperCase()}</a>` : (killedBy||'?').toUpperCase();
+        let text = `LYSIS BY ${kDisplay}`;
+        if (rank) text += `<br><span style="font-size:0.6em; color:rgba(255,255,255,0.4)">RANK: #${rank}</span>`;
+        msg.innerHTML = text;
+    }
+    const dm = document.getElementById('d_mass'); if (dm) dm.textContent = AppState.myStats.peakMass;
+    const dk = document.getElementById('d_kills'); if (dk) dk.textContent = AppState.myStats.sessionKills;
     
     // Hide respawn button initially
     const respawnBtn = document.querySelector('#dead button');
@@ -529,6 +721,13 @@ function connectSocket() {
     document.getElementById('hud').style.display = 'none';
     document.getElementById('dead').style.display = 'flex';
     document.getElementById('nametags').innerHTML = '';
+    
+    // Spectator logic: Find the leader's entity
+    const leader = AppState.gameState.leaderboard ? AppState.gameState.leaderboard[0] : null;
+    if (leader && leader.id !== AppState.myId) {
+        AppState.spectatingId = leader.id;
+    }
+
     
     MetaSystem.recordGame({ mass: AppState.myStats.peakMass, kills: AppState.myStats.sessionKills });
     
@@ -546,7 +745,31 @@ function connectSocket() {
     Audio.spawn();
   });
 
+  AppState.socket.on('lysis_event', ({killer, victim, x, z}) => {
+    if (window.Audio) Audio.lysis();
+    if (window.Particles) Particles.virusExplosion(x, 10, z, '#ff00ff');
+    AppState.shakeAmt = Math.max(AppState.shakeAmt, 50);
+    AppState.aberrationAmt = 2.0;
+    window.HudSystem.spawnCombatPopup(new pc.Vec3(x, 20, z), "PHAGE LYSIS!", "#ff00ff");
+    window.HudSystem.addKill(`💥 ${victim.toUpperCase()} WAS DESTROYED BY ${killer.toUpperCase()}'S LYSIS!`);
+  });
+
   AppState.socket.on('match_end', data => {
+    // data: { winner, type, placements? }
+    const isMe = data.winner && (data.winner.id === AppState.myId || data.winner === AppState.myTeam);
+    
+    // Record game
+    window.MetaSystem.recordGame({
+      mass: Math.floor(AppState.myScore),
+      kills: AppState.myKills,
+      mode: AppState.selectedMode,
+      won: isMe
+    });
+
+    if (isMe) {
+        window.MetaSystem.unlockAchievement('CHAMPION');
+        window.MetaSystem.addXP(500);
+    }
     // Achievement: Team Player
     if (data.type === 'TEAM_VICTORY' && data.winnerTeam === AppState.localTeam) {
         let wins = LS.get('teamWins', 0) + 1;
@@ -568,7 +791,7 @@ function connectSocket() {
 }
 
 function cycleSpectator(dir) {
-    const players = AppState.gameState.players.filter(p => p.blobs && p.blobs.length > 0).sort((a,b)=>b.score-a.score);
+    const players = AppState.gameState.players.filter(p => p && p.blobs && p.blobs.length > 0).sort((a,b)=>b.score-a.score);
     if (!players.length) return;
     let idx = players.findIndex(p => p.id === AppState.spectateId);
     idx = (idx + dir + players.length) % players.length;
@@ -595,14 +818,17 @@ function detectPerformanceProfile() {
 function addChatMessage(msg) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
+    const isX = msg.name && msg.name.startsWith('@');
+    const nameHtml = isX ? `<a href="https://x.com/${msg.name.slice(1)}" target="_blank" style="color:var(--cyan);text-decoration:none;">${msg.name}</a>` : `<span class="chat-name">${msg.name}</span>`;
+    
     const div = document.createElement('div');
     div.className = 'chat-msg';
     div.innerHTML = `
-        <div class="chat-meta">
-            <span class="chat-name">${msg.name}</span>
-            <span>${msg.date} • ${msg.time}</span>
+        <div class="chat-meta" style="font-size:10px; opacity:0.6; margin-bottom:2px;">
+            ${nameHtml}
+            <span style="margin-left:5px;">${msg.time}</span>
         </div>
-        <div>${msg.text}</div>
+        <div style="color:#eee; word-break:break-word;">${msg.text}</div>
     `;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
@@ -620,21 +846,25 @@ window.sendGlobalChat = function() {
 
 function setupHof() {
     const hof = [
-        { name: 'APEX_PREDATOR', score: 145200 },
-        { name: 'VOID_WALKER', score: 98400 },
-        { name: 'GLITCH_KING', score: 76100 },
-        { name: 'NEON_BLOB', score: 54300 },
-        { name: 'GHOST_CELL', score: 42100 }
+        { name: '@jordan_thirkle', score: 145200 },
+        { name: '@phage_lol', score: 98400 },
+        { name: '@vibejam2026', score: 76100 },
+        { name: 'APEX_PREDATOR', score: 54300 },
+        { name: 'CELL_DESTROYER', score: 42100 }
     ];
     const hofList = document.getElementById('hof-list');
     if (hofList) {
-        hofList.innerHTML = hof.map((h, i) => `
-            <div class="hof-item">
-                <span class="hof-rank">#${i+1}</span>
-                <span class="hof-name">${h.name}</span>
-                <span class="hof-score">${h.score.toLocaleString()}</span>
-            </div>
-        `).join('');
+        hofList.innerHTML = hof.map((h, i) => {
+            const isX = h.name.startsWith('@');
+            const nameHtml = isX ? `<a href="https://x.com/${h.name.slice(1)}" target="_blank">${h.name}</a>` : h.name;
+            return `
+                <div class="hof-item">
+                    <span class="hof-rank">#${i+1}</span>
+                    <span class="hof-name">${nameHtml}</span>
+                    <span class="hof-score">${h.score.toLocaleString()}</span>
+                </div>
+            `;
+        }).join('');
     }
 }
 

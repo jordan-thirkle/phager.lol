@@ -4,6 +4,7 @@ const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server);
+global.io = io;
 const msgpack = require('@msgpack/msgpack');
 const AbilitySystem = require('./public/src/abilities/AbilitySystem');
 const ModeManager = require('./public/src/modes/ModeManager');
@@ -21,7 +22,7 @@ const SPLIT_SPEED = 800;
 const BOOST_THRUST = 550;
 const BOOST_MASS_COST = 20;
 const MAX_BLOBS = 16;
-const CELL_SIZE = 200;
+const GRID_SIZE = 400; // Size of each tactical cell
 
 let globalChatBuffer = [];
 const MAX_CHAT_LOG = 30;
@@ -38,6 +39,7 @@ class GameRoom {
     this.abilities = new Map();
     this.grid = new Map();
     this.lastFoodId = 0;
+    this.foodPool = []; // Recycled IDs
     this.lastVirusId = 0;
     this.gameTime = 0;
 
@@ -46,18 +48,31 @@ class GameRoom {
     this.botTimer = setInterval(() => this.scaleBots(), 10000);
   }
 
-  rndArena() { return (Math.random() - 0.5) * this.arena; }
+  rndArena() { 
+    if (this.mode.mode.zone) {
+        const r = this.mode.mode.zone.radius * 0.8; // Spawn within 80% of zone
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * r;
+        return { x: this.mode.mode.zone.centerX + Math.cos(angle) * dist, z: this.mode.mode.zone.centerZ + Math.sin(angle) * dist };
+    }
+    return { x: (Math.random() - 0.5) * this.arena, z: (Math.random() - 0.5) * this.arena }; 
+  }
 
   spawnFood() {
-    this.lastFoodId++;
-    this.foods[this.lastFoodId] = { id: this.lastFoodId, x: this.rndArena(), z: this.rndArena(), mass: 3, color: '#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0') };
+    const id = this.foodPool.length > 0 ? this.foodPool.pop() : ++this.lastFoodId;
+    const pos = this.rndArena();
+    const f = { id, x: pos.x, z: pos.z, mass: 3, color: '#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0') };
+    this.foods[id] = f;
+    io.to(this.id).emit('foodSpawn', f);
   }
 
   spawnVirus() {
     this.lastVirusId++;
-    let vx, vz;
-    do { vx=this.rndArena(); vz=this.rndArena(); } while(Object.values(this.players).some(p=>p.blobs&&p.blobs.some(b=>Math.hypot(b.x-vx, b.z-vz)<150)));
-    this.viruses[this.lastVirusId] = { id: this.lastVirusId, x: vx, z: vz };
+    let pos;
+    do { pos = this.rndArena(); } while(Object.values(this.players).some(p=>p.blobs&&p.blobs.some(b=>Math.hypot(b.x-pos.x, b.z-pos.z)<150)));
+    const v = { id: this.lastVirusId, x: pos.x, z: pos.z };
+    this.viruses[this.lastVirusId] = v;
+    io.to(this.id).emit('virusSpawn', v);
   }
 
   scaleBots() {
@@ -85,7 +100,7 @@ class GameRoom {
       id, isBot: true,
       name: ['NEXUS', 'CIPHER', 'ROGUE', 'ECHO', 'NOVA', 'FLUX', 'ATLAS', 'TITAN'][Math.floor(Math.random()*8)],
       color: ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff'][Math.floor(Math.random()*6)],
-      blobs: [{ id: `${id}_0`, x: this.rndArena(), z: this.rndArena(), vx: 0, vz: 0, mass: Math.random()*200+100 }],
+      blobs: [{ id: `${id}_0`, x: this.rndArena().x, z: this.rndArena().z, vx: 0, vz: 0, mass: Math.random()*200+100 }],
       score: 0, kills: 0, streak: 0, xp: 0, lastSplit: 0, input: { dx:0, dz:0 },
       archetype,
       botTargetTime: 0,
@@ -151,6 +166,14 @@ class GameRoom {
     this.gameTime += TICK_MS;
     this.buildSpatialHash();
     
+    // Respawn Food & Viruses
+    if (Object.keys(this.foods).length < 700) {
+      for(let i=0; i<15; i++) this.spawnFood(); 
+    }
+    if (Object.keys(this.viruses).length < 20) {
+      this.spawnVirus();
+    }
+
     const appState = {
       players: this.players, foods: this.foods, viruses: this.viruses,
       abilities: this.abilities, decoys: this.decoys,
@@ -159,9 +182,25 @@ class GameRoom {
     AbilitySystem.tick(appState, TICK_MS);
     this.mode.onTick(this, TICK_MS);
 
+    const win = this.mode.checkWinCondition(this);
+    if (win) {
+        io.to(this.id).emit('match_end', win);
+        // Reset room logic would go here if needed, or just let them keep playing
+        // For Phage.lol, we'll announce and reset the specific mode state
+        if (this.mode.mode.name === 'BATTLE ROYALE') {
+            this.mode.mode.gameStarted = false;
+            this.mode.mode.lobbyTimer = 60000;
+            this.mode.mode.zone.radius = 2000;
+            this.mode.mode.zone.phase = 0;
+            this.mode.mode.placements = [];
+        } else if (this.mode.mode.name === 'TEAM ARENA') {
+            this.mode.mode.timer = 300000;
+        }
+    }
+
     for (const pid in this.players) {
       const p = this.players[pid];
-      if (!p.blobs) continue;
+      if (!p.blobs || p.blobs.length === 0) continue;
       if (p.isBot) this.updateBot(p, dt);
 
       for (const b of p.blobs) {
@@ -200,12 +239,15 @@ class GameRoom {
         for (const f of cell.foods) {
           if (this.foods[f.id] && Math.hypot(b.x-f.x, b.z-f.z) < r) {
             b.mass += f.mass; p.score += f.mass; p.xp += 1;
+            io.to(this.id).emit('foodEaten', {id: f.id, pid: p.id});
             delete this.foods[f.id];
+            this.foodPool.push(f.id); // Recycle ID
             if (!p.isBot) io.to(p.id).emit('feedbackEatFood', {x:f.x, z:f.z});
           }
         }
         for (const v of cell.viruses) {
           if (this.viruses[v.id] && b.mass > 200 && Math.hypot(b.x-v.x, b.z-v.z) < r) {
+            io.to(this.id).emit('virusEaten', {id: v.id});
             delete this.viruses[v.id];
             this.explodeVirus(p, i);
             break;
@@ -217,6 +259,13 @@ class GameRoom {
           if (!ob || !b) continue;
           const target = this.players[other.pid];
           if (target && this.mode.canEat(p, target) && Math.hypot(b.x-ob.x, b.z-ob.z) < r * 0.75) {
+            // LYSIS TRAP: If victim is > 60% of eater's size, eater bursts!
+            if (b.mass < ob.mass * 1.5) {
+                this.explodeVirus(p, i);
+                io.to(this.id).emit('lysis_event', { killer: target.name, victim: p.name, x: b.x, z: b.z });
+                return; // Stop processing this blob for this tick
+            }
+
             b.mass += ob.mass; p.score += ob.mass;
             p.kills++; p.streak++; p.xp += Math.floor(50 + (ob.mass/10));
             eatenBlobs.push({ eaterPid: p.id, eaterIdx: i, victimPid: other.pid, victimIdx: other.idx });
@@ -232,7 +281,14 @@ class GameRoom {
         vp.blobs.splice(e.victimIdx, 1);
         if (vp.blobs.length === 0) {
             if (vp.isBot) { delete this.players[e.victimPid]; setTimeout(()=>this.addBot(), 3000); }
-            else io.to(e.victimPid).emit('dead', { killedBy: this.players[e.eaterPid].name });
+            else {
+                const room = rooms[this.id];
+                let rank = 0;
+                if (room && room.mode.mode.name === 'BATTLE ROYALE') {
+                    rank = Object.values(room.players).filter(p => p.blobs && p.blobs.length > 0).length + 1;
+                }
+                io.to(e.victimPid).emit('dead', { killedBy: this.players[e.eaterPid].name, rank });
+            }
         }
       }
     }
@@ -283,15 +339,58 @@ class GameRoom {
   }
 
   broadcastState() {
-    const worldState = {
-      players: Object.values(this.players).map(p => ({
+    const allPlayers = Object.values(this.players);
+    const leaderboard = allPlayers.sort((a,b)=>b.score-a.score).slice(0,10).map(p=>({id:p.id, name:p.name, mass:Math.floor(p.score)}));
+    
+    // Mode-specific globals
+    const globals = {
+      flagOrb: this.mode.mode.flagOrb,
+      zone: this.mode.mode.zone,
+      brStarted: this.mode.mode.gameStarted,
+      brLobbyTimer: this.mode.mode.lobbyTimer
+    };
+
+    const CULL_DIST_SQ = 2500 * 2500; // Radius of interest
+
+    // We iterate through all human players to send them their specific tactical view
+    for (const socketId in this.players) {
+      const p = this.players[socketId];
+      if (p.isBot) continue;
+
+      const pSocket = io.sockets.sockets.get(socketId);
+      if (!pSocket) continue;
+
+      const myPos = p.blobs && p.blobs[0] ? p.blobs[0] : { x:0, z:0 };
+      
+      // Use the grid to find nearby players and decoys
+      const nearbyCells = this.getNearbyCells(myPos.x, myPos.z);
+      const visiblePlayersMap = new Map(); // Use map to avoid duplicates if blobs in different cells
+      visiblePlayersMap.set(p.id, {
           id:p.id, name:p.name, color:p.color, blobs:p.blobs, score:p.score||0, kills:p.kills||0, xp:p.xp||0, team:p.team,
           shielded: p.shielded, dashing: p.dashing, magnetActive: p.magnetActive, ability: this.abilities.get(p.id)
-      })),
-      leaderboard: Object.values(this.players).sort((a,b)=>b.score-a.score).slice(0,10).map(p=>({id:p.id, name:p.name, mass:Math.floor(p.score)})),
-      foods: this.foods, viruses: this.viruses, decoys: this.decoys
-    };
-    io.to(this.id).emit('world_state', msgpack.encode(worldState));
+      });
+
+      for (const cell of nearbyCells) {
+          for (const other of cell.blobs) {
+              if (visiblePlayersMap.has(other.pid)) continue;
+              const op = this.players[other.pid];
+              if (!op) continue;
+              visiblePlayersMap.set(op.id, {
+                  id:op.id, name:op.name, color:op.color, blobs:op.blobs, score:op.score||0, kills:op.kills||0, xp:op.xp||0, team:op.team,
+                  shielded: op.shielded, dashing: op.dashing, magnetActive: op.magnetActive, ability: this.abilities.get(op.id)
+              });
+          }
+      }
+
+      const worldState = {
+        players: Array.from(visiblePlayersMap.values()),
+        leaderboard: leaderboard,
+        decoys: this.decoys.filter(d => Math.pow(d.x - myPos.x, 2) + Math.pow(d.z - myPos.z, 2) < CULL_DIST_SQ),
+        ...globals
+      };
+
+      pSocket.emit('world_state', msgpack.encode(worldState));
+    }
   }
 }
 
@@ -325,26 +424,42 @@ io.on('connection', socket => {
     io.emit('new_global_chat', msg);
   });
 
-  socket.on('join', (data) => {
-    let payload = data;
-    try { if(data instanceof Uint8Array) payload = msgpack.decode(data); } catch(e){}
-    const roomType = payload.mode || 'ffa';
+  const handlePlayerJoin = (socket, payload) => {
+    const roomType = payload.mode || socket.roomType || 'ffa';
     const room = rooms[roomType];
     if (!room) return;
     socket.join(roomType);
     socket.roomType = roomType;
+    const pos = room.rndArena();
     const p = {
       id: socket.id, isBot: false,
       name: (payload.name || 'PLAYER').toUpperCase().slice(0,16),
       color: payload.color || '#00ffff',
-      blobs: [{ id: `${socket.id}_0`, x: room.rndArena(), z: room.rndArena(), vx: 0, vz: 0, mass: 100 }],
+      blobs: [{ id: `${socket.id}_0`, x: pos.x, z: pos.z, vx: 0, vz: 0, mass: 100 }],
       score: 0, kills: 0, streak: 0, xp: 0, lastSplit: 0, input: { dx:0, dz:0 },
       activeAbility: payload.ability || 'SHIELD'
     };
     room.players[socket.id] = p;
     room.abilities.set(socket.id, { ability: p.activeAbility, remainingMs: 0, active: false, activeDuration: 0 });
     room.mode.onPlayerJoin(p, room);
-    socket.emit('init', msgpack.encode({ id: socket.id }));
+    socket.emit('init', msgpack.encode({ 
+        id: socket.id, 
+        arenaSize: room.arena,
+        foods: room.foods,
+        viruses: room.viruses
+    }));
+  };
+
+  socket.on('join', (data) => {
+    let payload = data;
+    try { if(data instanceof Uint8Array) payload = msgpack.decode(data); } catch(e){}
+    handlePlayerJoin(socket, payload);
+  });
+
+  socket.on('respawn', (data) => {
+    let payload = data;
+    try { if(data instanceof Uint8Array) payload = msgpack.decode(data); } catch(e){}
+    handlePlayerJoin(socket, payload);
   });
 
   socket.on('input', data => {
