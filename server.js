@@ -479,8 +479,10 @@ setInterval(() => {
 
 io.on('connection', socket => {
   socket.on('join', (data) => {
+    console.log('📥 JOIN ATTEMPT:', data);
     let payload = data;
     try { if(data instanceof Uint8Array) payload = msgpack.decode(data); } catch(e){}
+    console.log('📥 DECODED JOIN:', payload);
     const roomType = payload.mode || 'ffa';
     const room = rooms[roomType];
     if (!room) return;

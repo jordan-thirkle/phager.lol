@@ -1,4 +1,5 @@
 // ─── BLOBZ.IO game.js (v2 Modular) ────────────────────────────
+console.log('📦 GAME.JS LOADED');
 const ARENA = 3000;
 const NEON = ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff','#88ff00','#0088ff','#ff4488','#ffbb00'];
 
@@ -13,6 +14,29 @@ const AppState = {
   input: { dx:0, dz:0, w:0, a:0, s:0, d:0, split:false, boost:false },
   fpsFrames: 0, fpsTime: 0, lastPingTime: 0, sendTimer: 0
 };
+let gridLines = [];
+let perfProfile = 'MEDIUM';
+
+// ─── ENTRY POINTS ─────────────────────────────────────────────
+window.startGame = function() {
+  console.log('▶️ START GAME CLICKED');
+  AppState.myName = (document.getElementById('nameInput').value.trim()||'PLAYER').toUpperCase().slice(0,16);
+  LS.set('name', AppState.myName);
+  LS.set('games', LS.get('games')+1);
+  document.getElementById('start').style.display = 'none';
+  AppState.perfProfile = detectPerformanceProfile();
+  if (typeof MetaSystem !== 'undefined' && MetaSystem.init) MetaSystem.init();
+  if (typeof Audio !== 'undefined' && Audio.init) { Audio.init(); Audio.resume(); }
+  initPC(); connectSocket();
+  console.log('🚀 Emitting JOIN for', AppState.myName);
+  AppState.socket.emit('join', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
+}
+
+window.respawn = function() {
+  document.getElementById('dead').style.display = 'none';
+  AppState.socket.emit('respawn', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
+}
+console.log('✅ startGame defined:', typeof window.startGame);
 
 // ─── STATS (localStorage) ────────────────────────────────────
 const LS = {
@@ -33,15 +57,18 @@ function loadStartStats() {
 }
 
 // ─── DEV SETTINGS ─────────────────────────────────────────────
-document.getElementById('chkGlow').addEventListener('change', e => {
-  for(const k in AppState.pEnts) {
-    if(AppState.pEnts[k].ent.children[0]) AppState.pEnts[k].ent.children[0].enabled = e.target.checked;
-  }
-});
-let gridLines = [];
-document.getElementById('chkGrid').addEventListener('change', e => {
-  gridLines.forEach(l => l.enabled = e.target.checked);
-});
+function initSettingsListeners() {
+  const chkGlow = document.getElementById('chkGlow');
+  if (chkGlow) chkGlow.addEventListener('change', e => {
+    for(const k in AppState.pEnts) {
+      if(AppState.pEnts[k].ent.children[0]) AppState.pEnts[k].ent.children[0].enabled = e.target.checked;
+    }
+  });
+  const chkGrid = document.getElementById('chkGrid');
+  if (chkGrid) chkGrid.addEventListener('change', e => {
+    gridLines.forEach(l => l.enabled = e.target.checked);
+  });
+}
 
 // ─── HELPERS ──────────────────────────────────────────────────
 function massToRadius(m){ return Math.pow(m, 0.45) * 2.2; }
@@ -303,8 +330,13 @@ function renderModeEntities() {
 
 // ─── SOCKET ───────────────────────────────────────────────────
 function connectSocket() {
+  console.log('🔌 Connecting to server...');
   AppState.socket = io();
   AppState.clientSeq = 1;
+
+  AppState.socket.on('connect', () => {
+    console.log('✅ Socket connected!');
+  });
 
   AppState.socket.on('init', buf => {
     const data = MessagePack.decode(new Uint8Array(buf));
@@ -482,25 +514,14 @@ function detectPerformanceProfile() {
   return 'LOW';
 }
 
-// ─── ENTRY POINTS ─────────────────────────────────────────────
-window.startGame = function() {
-  AppState.myName = (document.getElementById('nameInput').value.trim()||'PLAYER').toUpperCase().slice(0,16);
-  LS.set('name', AppState.myName);
-  LS.set('games', LS.get('games')+1);
-  document.getElementById('start').style.display = 'none';
-  AppState.perfProfile = detectPerformanceProfile();
-  MetaSystem.init();
-  Audio.init(); Audio.resume();
-  initPC(); connectSocket();
-  AppState.socket.emit('join', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
-}
-
-window.respawn = function() {
-  document.getElementById('dead').style.display = 'none';
-  AppState.socket.emit('respawn', MessagePack.encode({ name: AppState.myName, color: AppState.myColor }));
-}
 
 // Init stats on load
-loadStartStats();
-if (typeof initHowItWasMade === 'function') initHowItWasMade();
-document.getElementById('nameInput').addEventListener('keydown',e=>{ if(e.key==='Enter') window.startGame(); });
+try {
+  loadStartStats();
+  initSettingsListeners();
+  if (typeof initHowItWasMade === 'function') initHowItWasMade();
+  const nameInput = document.getElementById('nameInput');
+  if (nameInput) nameInput.addEventListener('keydown',e=>{ if(e.key==='Enter') window.startGame(); });
+} catch(e) {
+  console.error('❌ ERROR DURING GAME.JS INIT:', e);
+}
