@@ -52,6 +52,60 @@ window.HudSystem = (() => {
     }
   }
 
+  function updateLeaderboard(state) {
+    const list = document.getElementById('hof-list');
+    if (!list) return;
+    
+    // Clear list and add actual player data or thematic high-scores
+    list.innerHTML = '';
+    const lb = state.gameState.leaderboard || [];
+    
+    if (lb.length === 0) {
+        // Thematic Fallbacks (if server hasn't sent any yet)
+        const defaults = [
+            { name: "APEX_PREDATOR", score: 50000 },
+            { name: "LYSIS_MASTER", score: 35000 },
+            { name: "CELL_DESTROYER", score: 28000 },
+            { name: "VIRAL_LOAD_99", score: 22000 },
+            { name: "PHAGE_ZERO", score: 18000 }
+        ];
+        defaults.forEach(d => {
+            const el = document.createElement('div');
+            el.className = 'hof-item';
+            el.innerHTML = `<span>${d.name}</span> <span class="hof-score">${d.score}</span>`;
+            list.appendChild(el);
+        });
+    } else {
+        lb.slice(0, 10).forEach((p, i) => {
+            const el = document.createElement('div');
+            el.className = 'hof-item' + (p.id === state.myId ? ' me' : '');
+            el.innerHTML = `<span>${i+1}. ${p.name}</span> <span class="hof-score">${p.score}</span>`;
+            list.appendChild(el);
+        });
+    }
+  }
+
+  function addChatMessage(msg) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    
+    const el = document.createElement('div');
+    el.className = 'chat-msg';
+    const name = msg.name || 'ANONYMOUS';
+    const text = msg.text || '';
+    
+    // Sanitize and thematic highlighting
+    el.innerHTML = `<span class="chat-name">${name}:</span> <span class="chat-text">${text}</span>`;
+    container.appendChild(el);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // Pre-load thematic welcome message
+  setTimeout(() => {
+    addChatMessage({ name: 'SYSTEM', text: 'INITIATING VIRAL SEQUENCE. ALL BIOMASS DETECTED.' });
+    addChatMessage({ name: 'SYSTEM', text: 'REPLICATION TARGET: 50,000 BIOMASS.' });
+  }, 1000);
+
   function addKill(msg) {
     const kf = document.getElementById('kf');
     if (!kf) return;
@@ -348,6 +402,7 @@ window.HudSystem = (() => {
   }
   function setColor(hex) {
     window.MetaSystem.setLoadout({ primaryColor: hex });
+  }
   function spawnCombatPopup(worldPos, text, color) {
     const el = document.createElement('div');
     el.className = 'c-pop';

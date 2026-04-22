@@ -3,7 +3,7 @@ const puppeteer = require('puppeteer');
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
   page.on('console', msg => console.log('LOG:', msg.text()));
-  await page.goto('http://localhost:3000');
+  await page.goto('http://localhost:3001');
   await page.type('#nameInput', 'TEST');
   await page.click('#playBtn');
   await new Promise(r => setTimeout(r, 1000));

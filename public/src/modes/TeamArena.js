@@ -44,15 +44,18 @@ const TeamArena = {
     this.timer -= delta;
     if (this.timer < 0) this.timer = 0;
     
-    // Decay and XP for carrier
+    // Decay and XP/Mass for carrier and team
+    const carrierTeam = (this.flagOrb.carrier && gs.players[this.flagOrb.carrier]) ? gs.players[this.flagOrb.carrier].team : null;
+    
     for (const pid in gs.players) {
         const p = gs.players[pid];
         if (!p.blobs) continue;
         for (const b of p.blobs) {
             b.mass *= this.massDecay;
+            if (carrierTeam && p.team === carrierTeam) b.mass += 0.2; 
         }
         if (this.flagOrb.carrier === pid) {
-            p.xp += 2; // +40 XP/s approx
+            p.xp += 5;
         }
     }
     

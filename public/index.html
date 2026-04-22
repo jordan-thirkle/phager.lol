@@ -2,7 +2,11 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>PHAGE.LOL — Vibe Jam 2026</title>
+<title>PHAGE.LOL — THE VIRUS HUNTS</title>
+<meta name="description" content="A visceral biological horror agar.io clone. You are the virus. Hunt, infect, and engulf cells to dominate the biomass. Vibe Jam 2026 entry.">
+<meta property="og:title" content="PHAGE.LOL — THE VIRUS HUNTS">
+<meta property="og:description" content="Infect and engulf your way to the top in this real-time multiplayer biological arena.">
+<meta property="og:image" content="https://phage.lol/og-image.jpg">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;700&display=swap" rel="stylesheet">
 <!-- Jam Compliance: Widget Script (REQUIRED) -->
@@ -12,10 +16,11 @@
   --cyan: #00ff66;
   --magenta: #ff0055;
   --bg: #010105;
-  --glass: rgba(0, 20, 10, 0.4);
+  --glass: rgba(0, 15, 8, 0.6);
   --glass-border: rgba(0, 255, 102, 0.15);
   --scanline: rgba(0, 255, 102, 0.03);
-  --font-fluid: clamp(14px, 1.2vw, 18px);
+  --font-fluid: clamp(14px, 1.1vw, 16px);
+  --accent-glow: 0 0 20px rgba(0, 255, 102, 0.4);
 }
 
 body {
@@ -33,10 +38,16 @@ body {
 /* --- UTILITIES --- */
 .glass {
   background: var(--glass); backdrop-filter: blur(25px);
-  border: 1px solid var(--glass-border); border-radius: 12px;
+  border: 2px solid var(--glass-border); border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  animation: membranePulse 8s infinite ease-in-out;
+  filter: url(#goo);
 }
-.text-glow { text-shadow: 0 0 15px var(--cyan); }
+@keyframes membranePulse {
+  0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
+  50% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+}
+.text-glow { text-shadow: 0 0 15px var(--cyan); letter-spacing: 2px; }
 .diagnostic { font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; text-transform: uppercase; }
 
 /* --- JAM WIDGET & TIMER --- */
@@ -58,11 +69,7 @@ body {
 .status-dot { width: 6px; height: 6px; background: #0f0; border-radius: 50%; box-shadow: 0 0 10px #0f0; }
 
 /* --- VFX OVERLAYS --- */
-#vfx-noise { 
-  position: fixed; inset: 0; pointer-events: none; z-index: 1000;
-  background: url('https://grainy-gradients.vercel.app/noise.svg');
-  opacity: 0.05; mix-blend-mode: overlay;
-}
+
 #vfx-scanlines {
   position: fixed; inset: 0; pointer-events: none; z-index: 1001;
   background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), 
@@ -76,15 +83,25 @@ body {
 
 /* --- LOBBY LAYOUT --- */
 #home-layout {
-  position: fixed; inset: 40px 0 0 0; display: grid;
-  grid-template-columns: 360px 1fr 360px; padding: 40px; gap: 40px;
+  position: fixed; inset: 40px 0 0 0; 
+  display: flex; flex-direction: row; align-items: stretch; justify-content: center;
+  padding: 20px 40px; gap: 40px;
   z-index: 100; transition: opacity 0.5s;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin;
 }
+#home-layout::-webkit-scrollbar { display: none; }
 
-#home-center { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-#startTitle { font-family: 'Orbitron'; font-size: clamp(40px, 8vw, 80px); font-weight: 900; letter-spacing: 15px; margin-bottom: 5px; color: #fff; text-shadow: 0 0 30px rgba(0, 255, 102, 0.4); }
+#home-left, #home-right { 
+  width: 320px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px;
+}
+#home-center { 
+  flex: 1; max-width: 700px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: 40px 0;
+}
+#startTitle { font-family: 'Orbitron'; font-size: clamp(40px, 8vw, 80px); font-weight: 900; letter-spacing: 15px; margin-bottom: 5px; color: #fff; text-shadow: 0 0 30px rgba(0, 255, 102, 0.4); filter: url(#membrane); }
 #startTitle span { color: var(--cyan); }
-#startDef { font-family: 'Courier New', Courier, monospace; font-size: 11px; opacity: 0.4; margin-bottom: 40px; letter-spacing: 2px; line-height: 1.6; }
+#startDef { font-family: 'Courier New', Courier, monospace; font-size: 11px; opacity: 0.4; margin-bottom: 40px; letter-spacing: 2px; line-height: 1.6; filter: url(#membrane); }
 
 #phage-preview-wrap { position: relative; width: 120px; height: 120px; margin: 0 auto 30px auto; }
 #phage-preview { 
@@ -103,17 +120,18 @@ body {
 }
 
 #nameInput {
-  background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border);
-  border-radius: 50px; padding: 18px 30px; font-family: 'Orbitron';
-  font-size: 18px; color: #fff; text-align: center; width: 320px;
-  margin-bottom: 30px; outline: none; transition: 0.3s;
+  background: rgba(0,10,5,0.8); border: 2px solid var(--glass-border);
+  border-radius: 40% 60% 50% 50% / 50% 40% 60% 50%; padding: 18px 30px; font-family: 'Orbitron';
+  font-size: 18px; color: #fff; text-align: center; width: 100%; max-width: 400px;
+  margin-bottom: 25px; outline: none; transition: 0.3s;
+  filter: url(#goo);
 }
 #nameInput:focus { border-color: var(--cyan); box-shadow: 0 0 30px rgba(0, 255, 102, 0.2); }
 
-#modeSelect { display: flex; gap: 15px; margin-bottom: 40px; }
+#modeSelect { display: flex; gap: 12px; margin-bottom: 30px; flex-wrap: wrap; justify-content: center; width: 100%; }
 .mode-card {
-  width: 140px; padding: 20px; cursor: pointer; transition: 0.3s;
-  display: flex; flex-direction: column; align-items: center; border-radius: 15px;
+  flex: 1; min-width: 120px; max-width: 160px; padding: 15px; cursor: pointer; transition: 0.3s;
+  display: flex; flex-direction: column; align-items: center; border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02);
 }
 .mode-card:hover { border-color: var(--cyan); background: rgba(0,255,102,0.08); transform: translateY(-2px); }
@@ -123,9 +141,10 @@ body {
 
 .btn-primary {
   background: var(--cyan); color: #000; font-family: 'Orbitron'; font-weight: 900;
-  border: none; border-radius: 50px; padding: 20px 70px; cursor: pointer;
+  border: none; border-radius: 40% 60% 50% 50% / 50% 40% 60% 50%; padding: 20px 70px; cursor: pointer;
   letter-spacing: 5px; box-shadow: 0 0 40px rgba(0, 255, 102, 0.3); transition: 0.4s cubic-bezier(0.19, 1, 0.22, 1);
   animation: phagePulse 3s infinite ease-in-out;
+  filter: url(#goo);
 }
 .btn-primary:hover { transform: scale(1.05); box-shadow: 0 0 60px var(--cyan); letter-spacing: 8px; }
 
@@ -208,7 +227,15 @@ body {
 .ds-label { font-size: 10px; opacity: 0.4; margin-bottom: 5px; letter-spacing: 2px; }
 .ds-value { font-size: 32px; font-weight: 900; }
 
-#hookChat { position: fixed; bottom: 50px; left: 250px; font-size: 12px; color: #333; line-height: 1.6; }
+#hookChat { 
+  margin-top: 50px; font-family: 'Courier New', Courier, monospace; 
+  font-size: 13px; color: rgba(0,255,102,0.4); line-height: 1.8; 
+  border-left: 2px solid var(--cyan); padding: 15px 25px;
+  background: rgba(0, 255, 102, 0.05); border-radius: 0 15px 15px 0;
+  max-width: 300px; box-shadow: inset 10px 0 30px rgba(0,255,102,0.03);
+}
+#hookChat span { display: block; opacity: 0.6; }
+#hookChat span.me { opacity: 1; color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
 
 /* --- NAMETAGS --- */
 #nametags { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
@@ -221,7 +248,13 @@ body {
 }
 
 #modal-container { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); z-index: 20000; display: none; align-items: center; justify-content: center; }
-#modal-content { background: #05050a; border: 1px solid var(--cyan); border-radius: 24px; padding: 50px; position: relative; max-width: 800px; width: 90%; }
+#modal-content { 
+  background: #05050a; border: 2px solid var(--cyan); 
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; 
+  padding: 50px; position: relative; max-width: 800px; width: 90%; 
+  filter: url(#goo);
+  animation: membranePulse 12s infinite linear;
+}
 #modal-close { position: absolute; top: 20px; right: 20px; font-size: 30px; color: var(--cyan); background: none; border: none; cursor: pointer; }
 
 #touch-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 15000; display: none; }
@@ -236,9 +269,9 @@ body {
 #touch-ability { bottom: 40px; right: 40px; }
 
 #joystick-outer {
-  position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px;
+  position: fixed; width: 120px; height: 120px;
   background: var(--glass); border: 2px solid var(--glass-border);
-  border-radius: 50%; pointer-events: auto;
+  border-radius: 50%; pointer-events: auto; display: none;
 }
 #joystick-inner {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -259,31 +292,28 @@ body {
 .ach-popup.out { transform: translateX(-50%) translateY(-150px); }
 
 /* --- MOBILE BREAKPOINTS --- */
-@media (max-width: 1100px) {
-    #home-layout { grid-template-columns: 1fr; padding: 20px; gap: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
-    #home-left, #home-right { display: none; }
-    #home-center { width: 100%; max-width: 500px; padding-top: 100px; }
-    #startTitle { font-size: 50px; letter-spacing: 8px; }
-    #phage-preview-wrap { width: 90px; height: 90px; }
-    #hud { grid-template-columns: 1fr 1fr !important; grid-template-rows: auto 1fr auto !important; padding: 15px; }
-    #lb, #kf, #mm { transform: scale(0.8); transform-origin: bottom right; }
-    #stats-hud, #xpInfo { transform: scale(0.8); transform-origin: top left; }
-    #massDisplay { font-size: 20px; letter-spacing: 2px; }
+@media (max-width: 1000px) {
+    #home-layout { flex-direction: column; align-items: center; overflow-y: auto; padding: 20px; }
+    #home-left, #home-right { width: 100%; max-width: 500px; order: 2; flex-shrink: 0; display: flex; }
+    #home-center { order: 1; padding: 20px 0; width: 100%; max-width: 500px; justify-content: flex-start; flex-shrink: 0; }
+    #home-left { display: none; } 
 }
 
 @media (max-width: 600px) {
-    #startTitle { font-size: 36px; letter-spacing: 5px; }
-    #nameInput { width: 100%; padding: 12px 20px; font-size: 14px; }
-    #modeSelect { width: 100%; justify-content: center; gap: 5px; }
-    .mode-card { width: 90px; padding: 10px; }
+    #home-layout { padding: 10px; flex-direction: column; }
+    #startTitle { font-size: clamp(32px, 12vw, 48px); letter-spacing: 5px; }
+    #startDef { font-size: 10px; margin-bottom: 20px; padding: 0 10px; line-height: 1.4; }
+    #phage-preview-wrap { width: 100px; height: 100px; margin-bottom: 20px; }
+    #nameInput { padding: 12px 20px; font-size: 15px; margin-bottom: 15px; }
+    #modeSelect { gap: 6px; margin-bottom: 15px; }
+    .mode-card { min-width: 80px; padding: 10px; flex: 1 1 30%; }
+    .mode-name { font-size: 10px; margin-bottom: 4px; }
     .mode-desc { display: none; }
-    #killedByMsg { font-size: 24px; letter-spacing: 8px; }
-    .death-stats { flex-direction: column; gap: 10px; }
-    .ds-card { padding: 10px; }
-    .ds-value { font-size: 20px; }
+    #home-right { display: none; }
+    #hud { grid-template-columns: 1fr; grid-template-areas: "top-center" "mid-center" "bot-center"; padding: 10px; }
+    #lb, #mm, #stats-hud, #xpInfo, #levelBadge { display: none; }
+    #massDisplay { font-size: 18px; letter-spacing: 2px; }
 }
-
-.ach-popup.out { transform: translateX(-50%) translateY(-150px); }
 .ach-icon { font-size: 30px; }
 .ach-title { font-family: 'Orbitron'; font-size: 14px; color: var(--cyan); letter-spacing: 2px; }
 .ach-desc { font-size: 11px; opacity: 0.6; }
@@ -310,7 +340,9 @@ body {
 
 .profile-card { 
   background: rgba(0,255,102,0.03); border: 1px solid var(--glass-border); 
-  border-radius: 15px; padding: 20px; margin-bottom: 20px;
+  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; padding: 20px; margin-bottom: 20px;
+  filter: url(#goo);
+  animation: membranePulse 10s infinite ease-in-out;
 }
 .ps-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 10px; color: #888; }
 .ps-val { color: var(--cyan); font-family: 'Orbitron'; font-weight: 900; }
@@ -327,7 +359,7 @@ body {
 </style>
 </head>
 <body>
-<div id="vfx-noise"></div>
+
 <div id="vfx-scanlines"></div>
 <div id="vfx-vignette"></div>
 <div id="combat-popups"></div>
@@ -339,7 +371,7 @@ body {
 
 <div id="online-status">
   <div class="status-dot"></div>
-  <span id="playerCount">0</span> ORGANISMS
+  <span id="playerCount">0</span> PHAGES
 </div>
 
 <div id="diag-hud" class="diagnostic glass" style="position:fixed; top:100px; left:20px; z-index:10000; padding:10px 15px; font-size:9px; color:rgba(255,255,255,0.4); pointer-events:none;">
@@ -359,11 +391,11 @@ body {
             <div class="ps-row"><span>PEAK BIOMASS</span><span class="ps-val" id="ss_kills">0</span></div>
             <div class="ps-xp-bg"><div class="ps-xp-fill" id="ss_xp_fill"></div></div>
         </div>
-        <div id="global-chat">
-            <div id="chat-header">GLOBAL COMMS</div>
+        <div id="global-chat" class="gooey-filter">
+            <div id="chat-header">VIRAL COMMS</div>
             <div id="chat-messages"></div>
             <div id="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Say something..." maxlength="100">
+                <input type="text" id="chat-input" placeholder="Transmit signal..." maxlength="100">
                 <button onclick="sendGlobalChat()" style="background:var(--cyan); border:none; border-radius:4px; width:35px; height:32px; cursor:pointer;">▶</button>
             </div>
         </div>
@@ -398,7 +430,7 @@ body {
           </div>
         </div>
         <div class="menu-actions">
-            <button class="btn-primary" onclick="window.startGame()">ENCRYPT & ENTER</button>
+            <button class="btn-primary" onclick="startGame()" id="playBtn">INFECT & ENTER</button>
         </div>
         <div class="tutorial-card" style="margin-top:20px; width:100%; max-width:400px; text-align:center;">
           <b>GUIDE:</b> Engulf smaller cells to replication. Avoid larger ones. <br>
@@ -409,7 +441,7 @@ body {
           <button class="mbtn" onclick="window.HudSystem.openSettings()">CONFIG</button>
           <button class="mbtn" onclick="window.HudSystem.openGuide()">HELP</button>
           <button class="mbtn" onclick="window.openCareer()">CAREER</button>
-          <button class="mbtn" onclick="window.openHowItWasMade()">STORY</button>
+          <button class="mbtn" onclick="window.openHowItWasMade()">ARCHIVE</button>
           <button class="mbtn" onclick="window.toggleFullscreen()">FULLSCREEN</button>
         </div>
         <div style="display:flex; gap:15px; margin-top:20px; justify-content:center;">
@@ -417,17 +449,17 @@ body {
           <a href="https://jordanthirkle.com" target="_blank" class="mbtn" style="text-decoration:none;">WEBSITE</a>
         </div>
         <div id="hookChat">
-          "what are you playing?"<br>
-          "phage.lol"<br>
-          "...what?"<br>
-          "just go to phage.lol"
+          <span>"what are you playing?"</span>
+          <span class="me">"phage.lol"</span>
+          <span>"...what?"</span>
+          <span class="me">"just go to phage.lol"</span>
         </div>
     </div>
 
     <!-- RIGHT: PROGRESSION -->
     <div id="home-right">
-        <div id="hall-of-fame">
-            <div class="hof-title">HALL OF FAME</div>
+        <div id="hall-of-fame" class="gooey-filter">
+            <div class="hof-title">TOP PHAGES</div>
             <div id="hof-list"></div>
         </div>
     </div>
@@ -442,7 +474,7 @@ body {
   <div id="massDisplay">0</div>
   
   <div id="lb">
-    <div id="lbTitle">ACTIVE PHAGES</div>
+    <div id="lbTitle">PHAGE LEADERBOARD</div>
     <div id="lbList"></div>
   </div>
 
@@ -514,15 +546,33 @@ body {
       `${days.toString().padStart(2,'0')}:${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
   }, 1000);
 </script>
-<!-- SVG Filters for Membranous UI -->
-<svg style="visibility: hidden; position: absolute;" width="0" height="0" xmlns="http://www.w3.org/2000/svg" version="1.1">
-  <defs>
-    <filter id="gooey">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
-      <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="gooey" />
-      <feComposite in="SourceGraphic" in2="gooey" operator="atop"/>
-    </filter>
-  </defs>
-</svg>
+    <!-- Jam Compliance: SVG Gooey/Membrane Filter (The Hook) -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="visibility:hidden; height:0; width:0; position:absolute; pointer-events:none;">
+      <defs>
+        <filter id="membrane">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9" result="membrane" />
+          <feComposite in="SourceGraphic" in2="membrane" operator="atop"/>
+        </filter>
+        <filter id="goo">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
+          <feBlend in="SourceGraphic" in2="goo" />
+        </filter>
+        <!-- Procedural Noise to replace noise.svg -->
+        <filter id='noise'>
+          <feTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/>
+          <feColorMatrix type='saturate' values='0'/>
+          <feComponentTransfer>
+            <feFuncA type='linear' slope='0.05'/>
+          </feComponentTransfer>
+        </filter>
+      </defs>
+    </svg>
+
+    <div id="noise-overlay" style="position:fixed; inset:0; pointer-events:none; filter: url(#noise); z-index:9999; mix-blend-mode: overlay;"></div>
+
+    <!-- Main Game Logic -->
+    <script src="game.js"></script>
 </body>
 </html>

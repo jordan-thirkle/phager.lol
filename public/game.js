@@ -33,9 +33,9 @@ function checkLibraries(onReady) {
       clearInterval(check);
       console.log('✅ ALL LIBRARIES READY (Attempt '+attempts+')');
       onReady();
-    } else if (attempts > 100) {
-      clearInterval(check);
-      console.error('❌ LIBRARY LOAD TIMEOUT: pc='+(typeof pc)+', msgpack='+(typeof MessagePack)+', io='+(typeof io));
+    } else if (attempts > 50) {
+      console.warn('⚠️ Some libraries might be late, retrying...');
+      // Continue anyway or handle specifically
     }
   }, 100);
 }
@@ -60,7 +60,6 @@ window.startGame = function() {
     const nameEl = document.getElementById('nameInput');
     AppState.myName = (nameEl ? nameEl.value.trim() : 'PLAYER').toUpperCase().slice(0,16);
     LS.set('name', AppState.myName);
-    
     const homeEl = document.getElementById('home-layout');
     if (homeEl) homeEl.style.display = 'none';
 
@@ -134,8 +133,11 @@ function onInitialLoad() {
 
 // ─── STATS (localStorage) ────────────────────────────────────
 const LS = {
-  get(k,def=0){ try{ return JSON.parse(localStorage.getItem('blobz_'+k))??def; }catch{ return def; } },
-  set(k,v){ try{ localStorage.setItem('blobz_'+k,JSON.stringify(v)); }catch{} }
+  get(k,def=0){ try{ 
+    const v = localStorage.getItem('phage_'+k) || localStorage.getItem('blobz_'+k);
+    return v ? JSON.parse(v) : def;
+  }catch{ return def; } },
+  set(k,v){ try{ localStorage.setItem('phage_'+k,JSON.stringify(v)); }catch{} }
 };
 
 function loadStartStats() {
@@ -197,9 +199,9 @@ function initPC() {
   AppState.app.root.addChild(AppState.cameraEnt);
 
   const dl = new pc.Entity('dl');
-  dl.addComponent('light',{ type:'directional', color:new pc.Color(0.8,0.85,1.0), intensity:1.2 });
-  dl.setEulerAngles(55,30,0); AppState.app.root.addChild(dl);
-  AppState.app.scene.ambientLight = new pc.Color(0.05,0.06,0.18);
+  dl.addComponent('light',{ type:'directional', color:new pc.Color(1.0, 1.0, 1.0), intensity:2.0 });
+  dl.setEulerAngles(45,45,0); AppState.app.root.addChild(dl);
+  AppState.app.scene.ambientLight = new pc.Color(0.1, 0.1, 0.25);
 
   Particles.init(AppState.app); MinimapSystem.init(); InputSystem.init(AppState);
 
@@ -254,6 +256,7 @@ function initPC() {
 
     if (AppState.cameraEnt) {
         let targetX = AppState.cam.x, targetZ = AppState.cam.z;
+        if (!AppState.cam.pos) AppState.cam.pos = new pc.Vec3(0, 700, 0);
         
         // Follow leader if dead
         if (!AppState.gameActive && AppState.spectatingId) {
@@ -270,13 +273,15 @@ function initPC() {
         AppState.cam.z += (targetZ - AppState.cam.z) * (5 * dt);
         
         AppState.cameraEnt.setPosition(AppState.cam.x + AppState.shakeVec.x, 700 + AppState.shakeVec.y, AppState.cam.z + AppState.shakeVec.z);
+        if (!AppState.cam.pos) AppState.cam.pos = new pc.Vec3();
+        AppState.cam.pos.copy(AppState.cameraEnt.getPosition());
     }
 
     window.HudSystem.updateCombatPopups(AppState.cameraEnt, AppState.app);
 
-    // Culling & Lerp entities
-    const camPos = AppState.cam.pos || new pc.Vec3(0,700,0);
-    const CULL_DIST_SQ = 1200 * 1200; // Only render food within this radius
+    // Dynamic Culling: Reduced on low-end devices to maintain FPS
+    const CULL_RAD = AppState.perfProfile === 'HIGH' ? 3500 : (AppState.perfProfile === 'MEDIUM' ? 2200 : 1500);
+    const CULL_DIST_SQ = CULL_RAD * CULL_RAD;
 
     for (const fid in AppState.fEnts) {
         const ent = AppState.fEnts[fid];
@@ -350,9 +355,17 @@ function buildArena() {
 // ─── ENTITY MANAGEMENT ───────────────────────────────────────
 function makeMat(color, intensity=2) {
   const c=hexToRgb01(color), mat=new pc.StandardMaterial();
-  mat.diffuse=new pc.Color(c.r*0.2,c.g*0.2,c.b*0.2);
+  mat.diffuse=new pc.Color(c.r*0.1,c.g*0.1,c.b*0.1);
   mat.emissive=new pc.Color(c.r,c.g,c.b); mat.emissiveIntensity=intensity;
-  mat.useMetalness=true; mat.metalness=0.3; mat.gloss=0.8; mat.update();
+  mat.useMetalness=true; mat.metalness=0.5; mat.gloss=0.9;
+  
+  // Bio-Horror: Membrane Fresnel / Iridescence effect
+  mat.onUpdateShader = (device, options) => {
+    options.fresnelModel = pc.FRESNEL_SCHLICK;
+    return options;
+  };
+  
+  mat.update();
   return mat;
 }
 
@@ -458,10 +471,14 @@ function gameLoop(dt) {
       pEnt.tx = (pEnt.tx === undefined ? blob.x : pEnt.tx) + (blob.x - pEnt.tx) * lerpFactor;
       pEnt.tz = (pEnt.tz === undefined ? blob.z : pEnt.tz) + (blob.z - pEnt.tz) * lerpFactor;
       
-      const pulse = p.id === AppState.myId ? 1 + Math.sin(AppState.animTime*3)*0.04 : 1;
+      const pulse = p.id === AppState.myId ? 1 + Math.sin(AppState.animTime*3.5)*0.06 : 1 + Math.sin(AppState.animTime*2 + i*0.5)*0.03;
       const sc = r * 2 * pulse;
-      pEnt.ent.setPosition(pEnt.tx, r, pEnt.tz);
-      pEnt.ent.setLocalScale(sc, sc, sc);
+      // Organic Wobble: Slight position jitter
+      const wobbleX = Math.sin(AppState.animTime * 4 + i) * (r * 0.05);
+      const wobbleZ = Math.cos(AppState.animTime * 4 + i) * (r * 0.05);
+      
+      pEnt.ent.setPosition(pEnt.tx + wobbleX, r, pEnt.tz + wobbleZ);
+      pEnt.ent.setLocalScale(sc, sc * (1 + Math.sin(AppState.animTime*5)*0.02), sc);
 
       if (p.dashing && AppState.perfProfile !== 'LOW') {
           Particles.emitDashTrail(pEnt.tx, r, pEnt.tz, p.color, r);
@@ -556,13 +573,24 @@ function renderModeEntities() {
 
 // ─── SOCKET ───────────────────────────────────────────────────
 function connectSocket() {
+  if (AppState.socket) return;
   console.log('🔌 Connecting to server...');
-  AppState.socket = io();
+  try {
+    AppState.socket = io();
+    console.log('🔌 Socket.io instance created');
+    AppState.socket.on('connect', () => {
+        console.log('✅ SOCKET CONNECTED:', AppState.socket.id);
+        AppState.socket.emit('request_player_count'); // Force immediate count update
+    });
+    AppState.socket.on('connect_error', (err) => console.error('❌ SOCKET ERROR:', err));
+  } catch(e) {
+    console.error('❌ Failed to initialize Socket.io:', e);
+  }
   AppState.clientSeq = 1;
 
   // Home-Screen Social Listeners (Available immediately)
   AppState.socket.on('playerCount', count => {
-    const el = document.getElementById('player-count');
+    const el = document.getElementById('playerCount');
     if (el) el.textContent = count;
   });
 
@@ -584,7 +612,8 @@ function connectSocket() {
     AppState.arenaSize = data.arenaSize || 3000;
     buildArena();
     AppState.gameActive = true;
-    document.getElementById('hud').style.display = 'grid'; // Grid HUD
+    console.log('🏁 GAME INITIALIZED: ID=', AppState.myId, 'Arena=', AppState.arenaSize);
+    document.getElementById('hud').style.display = 'grid'; 
     Audio.resume(); Audio.spawn();
     Particles.spawnEffect(0, 10, 0, AppState.myColor);
 
@@ -645,7 +674,7 @@ function connectSocket() {
     AppState.myStats.sessionKills++; 
     if (window.HudSystem) HudSystem.showStreak(streak, AppState.myColor); 
     if (window.Audio) Audio.streak(streak);
-    window.MetaSystem.unlockAchievement('FIRST_BLOOD');
+    window.MetaSystem.unlockAchievement(1); // FIRST CONTACT
   });
 
   AppState.socket.on('feedbackBoost', () => { 
@@ -653,7 +682,7 @@ function connectSocket() {
   });
 
   AppState.socket.on('splitEffect', () => { if (window.Audio) Audio.split(); });
-  AppState.socket.on('decoyHit', () => { Appstate.shakeAmt = 15; });
+  AppState.socket.on('decoyHit', () => { AppState.shakeAmt = 15; });
 
   AppState.socket.on('ability_event', ({ playerId, ability, ts }) => {
     // Trigger SFX/VFX based on ability type
@@ -684,6 +713,13 @@ function connectSocket() {
     const kLink = isXK ? `<a href="https://x.com/${killer.slice(1)}" target="_blank" style="color:inherit">${killer}</a>` : killer;
     const vLink = isXV ? `<a href="https://x.com/${victim.slice(1)}" target="_blank" style="color:inherit">${victim}</a>` : victim;
     HudSystem.addKill(`${kLink} engulfed ${vLink}`);
+  });
+
+  AppState.socket.on('lysis_event', ({killer, victim, x, z}) => {
+    if (window.Particles) Particles.virusExplosion(x, 10, z, '#ff0055'); // Magenta explosion for lysis
+    if (window.Audio) Audio.virusHit();
+    AppState.shakeAmt = Math.max(AppState.shakeAmt, 25);
+    HudSystem.addKill(`💥 LYSIS: ${victim} burst by ${killer}`);
   });
 
   AppState.socket.on('virusHit', ({x,z}) => { 
@@ -741,7 +777,7 @@ function connectSocket() {
     AppState.myColor = data.color || NEON[Math.floor(Math.random()*NEON.length)];
     AppState.spectating = false;
     document.getElementById('dead').style.display = 'none';
-    document.getElementById('hud').style.display = 'block';
+    document.getElementById('hud').style.display = 'grid';
     Audio.spawn();
   });
 

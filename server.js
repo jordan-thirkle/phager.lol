@@ -77,7 +77,7 @@ class GameRoom {
 
   scaleBots() {
     const humanCount = Object.values(this.players).filter(p => !p.isBot).length;
-    const targetBotCount = Math.max(5, 15 - humanCount);
+    const targetBotCount = Math.max(10, 25 - humanCount);
     const currentBots = Object.values(this.players).filter(p => p.isBot);
     if (currentBots.length < targetBotCount) this.addBot();
     else if (currentBots.length > targetBotCount) {
@@ -98,9 +98,9 @@ class GameRoom {
 
     const bot = {
       id, isBot: true,
-      name: ['NEXUS', 'CIPHER', 'ROGUE', 'ECHO', 'NOVA', 'FLUX', 'ATLAS', 'TITAN'][Math.floor(Math.random()*8)],
-      color: ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff'][Math.floor(Math.random()*6)],
-      blobs: [{ id: `${id}_0`, x: this.rndArena().x, z: this.rndArena().z, vx: 0, vz: 0, mass: Math.random()*200+100 }],
+      name: ['NEXUS', 'CIPHER', 'ROGUE', 'ECHO', 'NOVA', 'FLUX', 'ATLAS', 'TITAN', 'VORTEX', 'SYNAPSE', 'ZEPHYR', 'QUARK', 'COBALT', 'PRISM'][Math.floor(Math.random()*14)],
+      color: ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff','#00ffcc','#ffcc00'][Math.floor(Math.random()*8)],
+      blobs: [{ id: `${id}_0`, x: (Math.random()-0.5)*this.arena, z: (Math.random()-0.5)*this.arena, vx: 0, vz: 0, mass: Math.random()*200+100 }],
       score: 0, kills: 0, streak: 0, xp: 0, lastSplit: 0, input: { dx:0, dz:0 },
       archetype,
       botTargetTime: 0,
@@ -124,14 +124,14 @@ class GameRoom {
     this.grid.clear();
     for (const id in this.foods) {
       const f = this.foods[id];
-      const cx = Math.floor(f.x / CELL_SIZE), cz = Math.floor(f.z / CELL_SIZE);
+      const cx = Math.floor(f.x / GRID_SIZE), cz = Math.floor(f.z / GRID_SIZE);
       const key = `${cx},${cz}`;
       if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });
       this.grid.get(key).foods.push(f);
     }
     for (const id in this.viruses) {
       const v = this.viruses[id];
-      const cx = Math.floor(v.x / CELL_SIZE), cz = Math.floor(v.z / CELL_SIZE);
+      const cx = Math.floor(v.x / GRID_SIZE), cz = Math.floor(v.z / GRID_SIZE);
       const key = `${cx},${cz}`;
       if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });
       this.grid.get(key).viruses.push(v);
@@ -141,7 +141,7 @@ class GameRoom {
       if (!p.blobs) continue;
       for (let i = 0; i < p.blobs.length; i++) {
         const b = p.blobs[i];
-        const cx = Math.floor(b.x / CELL_SIZE), cz = Math.floor(b.z / CELL_SIZE);
+        const cx = Math.floor(b.x / GRID_SIZE), cz = Math.floor(b.z / GRID_SIZE);
         const key = `${cx},${cz}`;
         if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });
         this.grid.get(key).blobs.push({ pid, idx: i, blob: b });
@@ -150,7 +150,7 @@ class GameRoom {
   }
 
   getNearbyCells(x, z) {
-    const cx = Math.floor(x / CELL_SIZE), cz = Math.floor(z / CELL_SIZE);
+    const cx = Math.floor(x / GRID_SIZE), cz = Math.floor(z / GRID_SIZE);
     const cells = [];
     for (let i = -1; i <= 1; i++) {
       for (let j = -1; j <= 1; j++) {
@@ -219,8 +219,12 @@ class GameRoom {
         for (const b of p.blobs) {
           b.x += dx * speed * dt;
           b.z += dz * speed * dt;
-          b.x = Math.max(-this.arena/2, Math.min(this.arena/2, b.x));
-          b.z = Math.max(-this.arena/2, Math.min(this.arena/2, b.z));
+          // Boundary Hardening: bounce back slightly if hitting edge
+          const margin = 20;
+          if (b.x < -this.arena/2 + margin) { b.x = -this.arena/2 + margin; b.vx = Math.abs(b.vx||0) * 0.5; }
+          if (b.x >  this.arena/2 - margin) { b.x =  this.arena/2 - margin; b.vx = -Math.abs(b.vx||0) * 0.5; }
+          if (b.z < -this.arena/2 + margin) { b.z = -this.arena/2 + margin; b.vz = Math.abs(b.vz||0) * 0.5; }
+          if (b.z >  this.arena/2 - margin) { b.z =  this.arena/2 - margin; b.vz = -Math.abs(b.vz||0) * 0.5; }
         }
       }
       this.checkEating(p);
@@ -235,24 +239,52 @@ class GameRoom {
       const b = p.blobs[i];
       const r = Math.pow(b.mass, 0.45) * 2.2;
       const nearby = this.getNearbyCells(b.x, b.z);
-      for (const cell of nearby) {
-        for (const f of cell.foods) {
-          if (this.foods[f.id] && Math.hypot(b.x-f.x, b.z-f.z) < r) {
-            b.mass += f.mass; p.score += f.mass; p.xp += 1;
-            io.to(this.id).emit('foodEaten', {id: f.id, pid: p.id});
-            delete this.foods[f.id];
-            this.foodPool.push(f.id); // Recycle ID
-            if (!p.isBot) io.to(p.id).emit('feedbackEatFood', {x:f.x, z:f.z});
+        for (const cell of nearby) {
+          for (const cellPlayer of cell.blobs) {
+            if (p.id === cellPlayer.pid) continue;
+            const ob = cellPlayer.blob;
+            const dist = Math.hypot(b.x - ob.x, b.z - ob.z);
+            const rPrey = Math.pow(ob.mass, 0.45) * 2.2;
+            
+            if (dist < r && b.mass > ob.mass * 1.1) {
+              // Lysis Trap: If eater is not big enough to swallow (less than 1.6x prey mass), it bursts.
+              if (b.mass < ob.mass * 1.6) {
+                this.explodeVirus(p, i);
+                io.emit('lysis_event', { killer: this.players[cellPlayer.pid]?.name || 'Unknown', victim: p.name, x: b.x, z: b.z });
+                continue; 
+              }
+              // Normal Eat
+              b.mass += ob.mass;
+              p.score += ob.mass;
+              const preyPlayer = this.players[cellPlayer.pid];
+              if (preyPlayer) {
+                preyPlayer.blobs.splice(cellPlayer.idx, 1);
+                if (preyPlayer.blobs.length === 0) {
+                    io.to(this.id).emit('dead', { killedBy: p.name, killerSocketId: p.id });
+                    this.removePlayer(cellPlayer.pid);
+                }
+              }
+              io.to(p.id).emit('feedbackEatPlayer', { x: ob.x, z: ob.z, mass: ob.mass, color: preyPlayer?.color || '#fff' });
+            }
           }
-        }
-        for (const v of cell.viruses) {
-          if (this.viruses[v.id] && b.mass > 200 && Math.hypot(b.x-v.x, b.z-v.z) < r) {
-            io.to(this.id).emit('virusEaten', {id: v.id});
-            delete this.viruses[v.id];
-            this.explodeVirus(p, i);
-            break;
+          for (const v of cell.viruses) {
+            if (this.viruses[v.id] && b.mass > 200 && Math.hypot(b.x-v.x, b.z-v.z) < r) {
+              io.to(this.id).emit('virusEaten', {id: v.id});
+              delete this.viruses[v.id];
+              this.explodeVirus(p, i);
+              break;
+            }
           }
-        }
+          for (const f of cell.foods) {
+            if (Math.hypot(b.x-f.x, b.z-f.z) < r) {
+              b.mass += f.mass;
+              p.score += f.mass;
+              this.foodPool.push(f.id);
+              delete this.foods[f.id];
+              io.to(this.id).emit('foodEaten', {id: f.id});
+              if (!p.isBot) io.to(p.id).emit('feedbackEatFood', {x: f.x, z: f.z, mass: f.mass});
+            }
+          }
         for (const other of cell.blobs) {
           if (other.pid === p.id) continue;
           const ob = other.blob;
@@ -376,7 +408,8 @@ class GameRoom {
               const op = this.players[other.pid];
               if (!op) continue;
               visiblePlayersMap.set(op.id, {
-                  id:op.id, name:op.name, color:op.color, blobs:op.blobs, score:op.score||0, kills:op.kills||0, xp:op.xp||0, team:op.team,
+                  id:op.id, name:op.name, color:op.color, blobs:op.blobs.map(b=>({id:b.id, x:Math.round(b.x), z:Math.round(b.z), mass:Math.round(b.mass)})), 
+                  score:Math.round(op.score||0), kills:op.kills||0, xp:op.xp||0, team:op.team,
                   shielded: op.shielded, dashing: op.dashing, magnetActive: op.magnetActive, ability: this.abilities.get(op.id)
               });
           }
@@ -425,7 +458,7 @@ io.on('connection', socket => {
   });
 
   const handlePlayerJoin = (socket, payload) => {
-    const roomType = payload.mode || socket.roomType || 'ffa';
+    const roomType = (payload && payload.mode) || socket.roomType || 'ffa';
     const room = rooms[roomType];
     if (!room) return;
     socket.join(roomType);
@@ -433,11 +466,11 @@ io.on('connection', socket => {
     const pos = room.rndArena();
     const p = {
       id: socket.id, isBot: false,
-      name: (payload.name || 'PLAYER').toUpperCase().slice(0,16),
-      color: payload.color || '#00ffff',
+      name: (payload && payload.name || 'PLAYER').toUpperCase().slice(0,16),
+      color: (payload && payload.color) || '#00ffff',
       blobs: [{ id: `${socket.id}_0`, x: pos.x, z: pos.z, vx: 0, vz: 0, mass: 100 }],
       score: 0, kills: 0, streak: 0, xp: 0, lastSplit: 0, input: { dx:0, dz:0 },
-      activeAbility: payload.ability || 'SHIELD'
+      activeAbility: (payload && payload.ability) || 'SHIELD'
     };
     room.players[socket.id] = p;
     room.abilities.set(socket.id, { ability: p.activeAbility, remainingMs: 0, active: false, activeDuration: 0 });
@@ -452,13 +485,21 @@ io.on('connection', socket => {
 
   socket.on('join', (data) => {
     let payload = data;
-    try { if(data instanceof Uint8Array) payload = msgpack.decode(data); } catch(e){}
+    try { 
+        if(Buffer.isBuffer(data) || data instanceof Uint8Array) {
+            payload = msgpack.decode(data); 
+        }
+    } catch(e){ console.error("Decode error", e); }
     handlePlayerJoin(socket, payload);
   });
 
   socket.on('respawn', (data) => {
     let payload = data;
-    try { if(data instanceof Uint8Array) payload = msgpack.decode(data); } catch(e){}
+    try { 
+        if(Buffer.isBuffer(data) || data instanceof Uint8Array) {
+            payload = msgpack.decode(data); 
+        }
+    } catch(e){ console.error("Decode error", e); }
     handlePlayerJoin(socket, payload);
   });
 
@@ -498,4 +539,5 @@ io.on('connection', socket => {
   });
 });
 
-server.listen(3000, () => console.log('🎮 BLOBZ.IO v2 → http://localhost:3000'));
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => console.log(`🎮 PHAGE.LOL v2 → http://localhost:${PORT}`));

@@ -141,12 +141,18 @@ window.InputSystem = (() => {
       InputState._touchActive = true;
       for (const t of e.changedTouches) {
         const x = t.clientX, y = t.clientY;
-        if (x < window.innerWidth * 0.6 && !joystick.active) {
+        // Dynamic Joystick: Spawns where you touch on the left half
+        if (x < window.innerWidth * 0.5 && !joystick.active) {
             joystick.active = true; joystick.id = t.identifier;
-            const rect = document.getElementById('joystick-outer').getBoundingClientRect();
-            joystick.ox = rect.left + rect.width / 2;
-            joystick.oy = rect.top + rect.height / 2;
+            joystick.ox = x; joystick.oy = y;
             joystick.x = x; joystick.y = y;
+            
+            const jOuter = document.getElementById('joystick-outer');
+            if (jOuter) {
+                jOuter.style.display = 'block';
+                jOuter.style.left = `${x - 60}px`;
+                jOuter.style.top = `${y - 60}px`;
+            }
         } else {
             const el = document.elementFromPoint(x, y);
             if (el && el.id === 'touch-split') touchBtns.split = true;
@@ -169,6 +175,8 @@ window.InputSystem = (() => {
         if (t.identifier === joystick.id) {
           joystick.active = false; joystick.id = null;
           InputState.dx = 0; InputState.dz = 0;
+          const jOuter = document.getElementById('joystick-outer');
+          if (jOuter) jOuter.style.display = 'none';
           const jInner = document.getElementById('joystick-inner');
           if (jInner) { jInner.style.left = '50%'; jInner.style.top = '50%'; }
         }

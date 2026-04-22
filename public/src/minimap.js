@@ -41,7 +41,7 @@ window.MinimapSystem = (() => {
     for (const p of AppState.gameState.players) {
       if (!p || !p.blobs) continue;
       for (const b of p.blobs) {
-        const mx = (b.x + ARENA/2) * s, mz = (b.z + ARENA/2) * s;
+        const mx = (b.x + arena/2) * s, mz = (b.z + arena/2) * s;
         const r = Math.max(2, Math.pow(b.mass, 0.45) * 2.2 * s * 0.5);
         ctx.fillStyle = p.id === AppState.myId ? '#ffff00' : (p.color || '#ff0000');
         ctx.beginPath(); ctx.arc(mx, mz, r, 0, Math.PI*2); ctx.fill();
@@ -52,7 +52,7 @@ window.MinimapSystem = (() => {
     // My position indicator
     if (me && me.blobs && me.blobs.length) {
       const b = me.blobs[0];
-      const mx = (b.x + ARENA/2) * s, mz = (b.z + ARENA/2) * s;
+      const mx = (b.x + arena/2) * s, mz = (b.z + arena/2) * s;
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(mx, mz, 4, 0, Math.PI*2); ctx.stroke();
     }
