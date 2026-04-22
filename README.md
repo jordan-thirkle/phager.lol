@@ -1,9 +1,9 @@
-# 🧪 BLOBZ.IO V2 — Vibe Jam 2026
+# 🧪 PHAGE.LOL — THE VIRUS HUNTS
 
 ![Vibe Jam 2026](https://img.shields.io/badge/Vibe%20Jam-2026-00ffff?style=for-the-badge&logo=game-developer)
 ![Technology](https://img.shields.io/badge/Tech-PlayCanvas%20%7C%20Node.js%20%7C%20Socket.io-ff0088?style=for-the-badge)
 
-A high-performance, physics-driven 3D multiplayer brawler built for the **Vibe Jam 2026**. BLOBZ.IO V2 reimagines the classic "eat-to-grow" mechanic with procedural generation, binary networking, and a premium glassmorphic UI.
+A visceral biological horror multiplayer engine built for the **Vibe Jam 2026**. PHAGE.LOL reimagines the classic "eat-to-grow" mechanic with procedural generation, binary networking, and a premium glassmorphic UI. You are the virus. Hunt, infect, and engulf cells to dominate the biomass.
 
 ---
 
@@ -33,7 +33,7 @@ A high-performance, physics-driven 3D multiplayer brawler built for the **Vibe J
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/jordan-thirkle/blobz-io-v2.git
+   git clone https://github.com/jordan-thirkle/phage-lol.git
    ```
 2. Install dependencies:
    ```bash
