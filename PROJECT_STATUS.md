@@ -13,5 +13,7 @@
 
 ## Roadmap
 - [x] Railway OOM Fix
+- [x] Repository Synchronization & Push
+- [x] Performance Optimization (Culling & Entity reduction)
 - [ ] Final UI Polish
 - [ ] Vibe Jam Submission Validation

@@ -148,7 +148,7 @@ class GameRoom {
     this.lastVirusId = 0;
     this.gameTime = 0;
 
-    for(let i=0; i<700; i++) this.spawnFood();
+    for(let i=0; i<450; i++) this.spawnFood();
     for(let i=0; i<20; i++) this.spawnVirus();
     this.botTimer = setInterval(() => this.scaleBots(), 10000);
   }
@@ -334,7 +334,7 @@ class GameRoom {
     this.buildSpatialHash();
     
     // Respawn Food & Viruses
-    if (Object.keys(this.foods).length < 700) {
+    if (Object.keys(this.foods).length < 450) {
       for(let i=0; i<15; i++) this.spawnFood(); 
     }
     if (Object.keys(this.viruses).length < 20) {
@@ -549,7 +549,7 @@ class GameRoom {
         }
     }
 
-    while (Object.keys(this.foods).length < 700) this.spawnFood();
+    while (Object.keys(this.foods).length < 450) this.spawnFood();
     while (Object.keys(this.viruses).length < 20) this.spawnVirus();
   }
 
@@ -720,7 +720,7 @@ class GameRoom {
       const myMass = p.blobs ? p.blobs.reduce((s,b)=>s+b.mass,0) : 100;
       
       // INTEREST MANAGEMENT: Dynamic view distance logic (Rule #10)
-      const viewDist = 1800 + Math.sqrt(myMass) * 15;
+      const viewDist = 1100 + Math.sqrt(myMass) * 15;
       const viewDistSq = viewDist * viewDist;
 
       const nearbyCells = this.getNearbyCells(myPos.x, myPos.z, viewDist);

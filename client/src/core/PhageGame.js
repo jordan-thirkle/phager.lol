@@ -348,14 +348,18 @@ export class PhageGame {
 
     HudSystem.updateCombatPopups(AppState.cameraEnt, AppState.app);
 
-    const CULL_RAD = AppState.perfProfile === 'HIGH' ? 3500 : (AppState.perfProfile === 'MEDIUM' ? 2200 : 1500);
+    const CULL_RAD = AppState.perfProfile === 'HIGH' ? 2200 : (AppState.perfProfile === 'MEDIUM' ? 1400 : 900);
     const CULL_DIST_SQ = CULL_RAD * CULL_RAD;
 
-    for (const fid in AppState.fEnts) {
-        const ent = AppState.fEnts[fid];
-        const p = ent.getPosition();
-        const dx = p.x - camPos.x, dz = p.z - camPos.z;
-        ent.enabled = (dx*dx + dz*dz < CULL_DIST_SQ);
+    // Throttle Food Culling (Every 10 frames)
+    const frameCount = Math.floor(AppState.animTime * 60);
+    if (frameCount % 10 === 0) {
+        for (const fid in AppState.fEnts) {
+            const ent = AppState.fEnts[fid];
+            const p = ent.getPosition();
+            const dx = p.x - camPos.x, dz = p.z - camPos.z;
+            ent.enabled = (dx*dx + dz*dz < CULL_DIST_SQ);
+        }
     }
     
     if (AppState.gameActive) this.gameLoop(dt);
