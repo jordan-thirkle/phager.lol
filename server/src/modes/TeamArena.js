@@ -94,7 +94,7 @@ const TeamArena = {
             else blueMass += mass;
         }
         const winningTeam = this.flagOrb.lastHeldTeam || (redMass > blueMass ? 'red' : 'blue');
-        return { winner: winningTeam, type: 'TEAM_VICTORY' };
+        return { winner: winningTeam, winnerTeam: winningTeam, type: 'TEAM_VICTORY' };
     }
     return null;
   }

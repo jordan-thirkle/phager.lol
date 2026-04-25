@@ -3,6 +3,7 @@ const FFA = {
   arenaSize: { x: 3000, z: 3000 },
   massDecay: 0.9997,
   speedMultiplier: 1.0,
+  roundEnded: false,
   
   canEat(attacker, target) {
     if (!attacker || !target) return false;
@@ -14,6 +15,9 @@ const FFA = {
   
   onPlayerJoin(player, gs) {
     // No special join logic for FFA
+    if (this.roundEnded && Object.keys(gs.players).length === 1) {
+      this.roundEnded = false;
+    }
   },
   
   onPlayerDeath(player, gs) {
@@ -32,6 +36,7 @@ const FFA = {
   },
   
   checkWinCondition(gs) {
+    if (this.roundEnded) return null;
     const players = Object.values(gs.players);
     if (players.length === 0) return null;
     const leader = players.sort((a,b) => {
@@ -40,7 +45,10 @@ const FFA = {
         return bm - am;
     })[0];
     const leaderMass = leader.blobs ? leader.blobs.reduce((s,bl)=>s+bl.mass,0) : 0;
-    if (leaderMass >= 10000) return { winner: leader, type: 'CHAMPION' };
+    if (leaderMass >= 10000) {
+      this.roundEnded = true;
+      return { winner: leader, type: 'CHAMPION' };
+    }
     return null;
   }
 };
