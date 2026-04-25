@@ -39,11 +39,25 @@ A visceral biological horror multiplayer engine built for the **Vibe Jam 2026**.
    ```bash
    npm install
    ```
-3. Start the production server:
+3. Start the development environment:
    ```bash
-   node server.js
+   npm run dev
    ```
-4. Open your browser at `http://localhost:3000`.
+4. Open your browser at `http://localhost:5173`. (Game server runs on `3001`).
+
+## Deployment
+For production or hosted deployments, run the root start script after installing dependencies:
+```bash
+npm install
+npm start
+```
+The server now builds the client before booting, so `dist/` does not have to be checked in. If you host the frontend and backend on different origins, set `VITE_SOCKET_URL` in the client environment to the backend URL so Socket.IO connects to the correct server.
+
+## ⚖️ For Vibe Jam Judges
+To get the engine running immediately:
+1. `npm install`
+2. `npm run dev`
+3. Visit the frontend at **port 5173**. The backend bridge handles all proxying automatically.
 
 ## 📜 Dev History
 This project was built over 4 days, evolving from a raw PlayCanvas experiment into a fully modular multiplayer ecosystem. See the **"Behind the Code"** section in-game for a full interactive timeline.

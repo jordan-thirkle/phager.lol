@@ -1,4 +1,4 @@
-# GEMINI.MD — PHAGE.LOL
+# SUBMISSION_GUIDELINES.MD — PHAGE.LOL
 ### Cursor Vibe Jam 2026 Entry · Jordan Thirkle · @jordan_thirkle (https://jordanthirkle.com)
 
 ---
@@ -105,7 +105,7 @@ These are the judging criteria inferred from Vibe Jam 2026. Build toward all of 
 
 ## ⚠️ CRITICAL JAM COMPLIANCE — NON-NEGOTIABLE
 
-The following are **disqualification risks**. Gemini must always verify these are intact:
+The following are **disqualification risks**. The AI agent must always verify these are intact:
 
 ### 1. Widget Script (REQUIRED — disqualified without it)
 This MUST be present in the game's HTML at all times:
@@ -133,11 +133,11 @@ This MUST be present in the game's HTML at all times:
 
 ### 5. AI-Written Code (REQUIRED — 90% minimum)
 - At least 90% of code must be AI-generated.
-- This is a Gemini project — fully compliant by design.
+- This is an AI-augmented project — fully compliant by design.
 
 ### 6. Documentation & Transparency (REQUIRED)
 - The `howItWasMade.js` file MUST be updated after every significant feature or fix.
-- Gemini must document every prompt and architectural decision to ensure 100% transparency for judges.
+- The AI assistant must document every prompt and architectural decision to ensure 100% transparency for judges.
 - Commits must be professional and follow the Conventional Commits format to demonstrate a clean development history.
 
 ---
@@ -261,7 +261,7 @@ All commits must follow **Conventional Commits** format:
 | `refactor` | Code restructure, no behaviour change |
 | `style` | UI, CSS, visual polish |
 | `chore` | Deps, config, tooling, CI |
-| `docs` | README, comments, gemini.md |
+| `docs` | README, comments, submission_guidelines.md |
 | `revert` | Reverting a previous commit |
 
 ### Scopes
@@ -365,8 +365,8 @@ alias to ensure vibej.am widget counts correctly.
 | Mobile ready | ✅ Yes (Touch/Gamepad/Responsive) |
 | Screenshot uploaded | ✅ Yes |
 | Pitch sentence | "A bacteriophage hunts and destroys cells — so do you. Real-time multiplayer across three brutal game modes." |
-| Engine declared | [fill in on form] |
-| AI tool declared | Gemini |
+| Engine declared | PlayCanvas |
+| AI tool declared | Antigravity AI |
 | 90% AI code | ✅ Yes |
 | No login / free to play | ✅ Yes |
 | No loading screens | ✅ Verify on every deploy |
