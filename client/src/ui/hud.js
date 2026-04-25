@@ -1,4 +1,4 @@
-import * as pc from 'playcanvas';
+import { Vec3 } from 'playcanvas';
 // ─── PHAGE.LOL HUD System ───
 const LEVELS = [
   {l:1,xp:0,title:'SPAWN',color:'#888888'},
@@ -93,12 +93,15 @@ export const HudSystem = {
   updateHallOfFame(hof) {
     const list = document.getElementById('hof-list');
     if (!list || !hof) return;
+    const hofString = JSON.stringify(hof);
+    if (AppState.uiCache.hof === hofString) return;
+    AppState.uiCache.hof = hofString;
     
     list.innerHTML = '';
     hof.slice(0, 10).forEach((entry, i) => {
         const el = document.createElement('div');
-        el.className = 'hof-item';
         const date = new Date(entry.date).toLocaleDateString([], { month: 'short', day: 'numeric' });
+        el.className = 'hof-item';
         el.innerHTML = `<span class="hof-rank">${i+1}.</span> <span class="hof-name">${entry.name}</span> <span class="hof-score">${entry.mass}</span> <span class="hof-date">${date}</span>`;
         list.appendChild(el);
     });
@@ -107,37 +110,58 @@ export const HudSystem = {
   updateNametags(AppState) {
     const tagContainer = document.getElementById('nametags');
     if (!tagContainer) return;
+    if (AppState.MetaSystem && AppState.MetaSystem.getSetting('nameTags') === false) {
+        tagContainer.style.display = 'none';
+        return;
+    }
+    tagContainer.style.display = 'block';
+    
+    // PERF: Throttle nametag updates if too many items are in the pool
+    if (tagPool.length > 50 && AppState.animTime % 2 !== 0) return;
+
     tagPool.forEach(t => { t.active = false; t.el.style.display = 'none'; });
     if (AppState.perfProfile === 'LOW') return;
     
     let players = AppState.gameState.players.filter(p => p && p.blobs && p.blobs.length > 0);
+    const me = players.find(p => p && p.id === AppState.myId);
+    
     if (AppState.perfProfile === 'MEDIUM') {
-        const me = players.find(p => p && p.id === AppState.myId);
         if (me && me.blobs[0]) {
             players.sort((a,b) => {
-                const da = Math.hypot(a.blobs[0].x - me.blobs[0].x, a.blobs[0].z - me.blobs[0].z);
-                const db = Math.hypot(b.blobs[0].x - me.blobs[0].x, b.blobs[0].z - me.blobs[0].z);
+                const da = (a.blobs[0].x - me.blobs[0].x)**2 + (a.blobs[0].z - me.blobs[0].z)**2;
+                const db = (b.blobs[0].x - me.blobs[0].x)**2 + (b.blobs[0].z - me.blobs[0].z)**2;
                 return da - db;
             });
-            players = players.slice(0, 8); 
+            players = players.slice(0, 10); 
         }
     }
 
     const cam = AppState.cameraEnt.camera;
+    const viewDistSq = AppState.perfProfile === 'HIGH' ? 1000000 : 400000;
+
     for (const p of players) {
       const b = p.blobs[0];
+      if (!b) continue;
+      
+      // Distance Culling for Nametags
+      if (me && me.blobs[0] && p.id !== AppState.myId) {
+          const dsq = (b.x - me.blobs[0].x)**2 + (b.z - me.blobs[0].z)**2;
+          if (dsq > viewDistSq) continue;
+      }
+
       const mass = p.blobs.reduce((s,bb)=>s+(bb?bb.mass:0),0);
       if (mass < 150 && p.id !== AppState.myId) continue;
       
       const r = Math.pow(b.mass, 0.45) * 2.2;
-      const wp = new pc.Vec3(b.x, r*2 + 10, b.z);
+      const wp = new Vec3(b.x, r*2 + 10, b.z);
       const ws = cam.worldToScreen(wp);
       if (!ws) continue;
       
       const el = getTag(tagContainer);
       el.style.transform = `translate3d(${ws.x}px, ${ws.y}px, 0) translate(-50%, -50%)`;
       el.style.color = p.color || '#fff';
-      el.textContent = p.name + (p.id === AppState.myId ? ' ●' : '');
+      const nameTxt = p.name + (p.id === AppState.myId ? ' ●' : '');
+      if (el.textContent !== nameTxt) el.textContent = nameTxt;
     }
   },
 
@@ -147,6 +171,10 @@ export const HudSystem = {
     if (!listEl) return;
 
     const lb = AppState.gameState.leaderboard.filter(e => e);
+    const lbString = JSON.stringify(lb);
+    if (AppState.uiCache.leaderboard === lbString) return;
+    AppState.uiCache.leaderboard = lbString;
+
     const topMass = lb[0] ? lb[0].mass : 0;
 
     listEl.innerHTML = lb.map((e, i) => {
@@ -312,11 +340,15 @@ export const HudSystem = {
     }
   },
 
+  triggerMembraneFlash() {
+      AppState.flashAmt = 1.0;
+  },
+
   updateHints(mass) {
     if (!this._hints) this._hints = {
       split: { shown: false, text: "PRESS SPACE TO REPLICATE", condition: (m) => m > 250 },
       virus: { shown: false, text: "AVOID GREEN VIRUSES WHILE LARGE", condition: (m) => m > 400 },
-      boost: { shown: false, text: "HOLD W TO BOOST SPEED", condition: (m) => m > 150 }
+      boost: { shown: false, text: "HOLD SHIFT TO BOOST SPEED", condition: (m) => m > 150 }
     };
     for (const key in this._hints) {
         const h = this._hints[key];
@@ -407,7 +439,7 @@ export const HudSystem = {
   },
 
   openGuide() {
-    this.openModal('PHAGE PROTOCOL', `<div class="tutorial-card"><b>SPACE</b> to split. <b>W</b> to boost. <b>Q</b> for Ability. <br><br> Engage smaller phages to engulf their biomass. Larger phages will lyse you on contact.</div>`);
+    this.openModal('PHAGE PROTOCOL', `<div class="tutorial-card"><b>SPACE</b> to split. <b>SHIFT</b> to boost. <b>Q</b> for Ability. <br><br> Engage smaller phages to engulf their biomass. Larger phages will lyse you on contact.</div>`);
   },
 
   openCareer(MetaSystem) {
@@ -415,10 +447,65 @@ export const HudSystem = {
     this.openModal('CAREER DIAGNOSTICS', `
       <div class="career-stats" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; font-family:Orbitron;">
         <div class="ds-card"><div class="ds-label">TOTAL XP</div><div class="ds-value">${data.totalXP}</div></div>
-        <div class="ds-card"><div class="ds-label">BEST MASS</div><div class="ds-value">${data.bestMass}</div></div>
+        <div class="ds-card"><div class="ds-label">BEST MASS</div><div class="ds-value">${data.bestBiomass}</div></div>
         <div class="ds-card"><div class="ds-label">TOTAL KILLS</div><div class="ds-value">${data.totalKills}</div></div>
         <div class="ds-card"><div class="ds-label">SKINS UNLOCKED</div><div class="ds-value">${data.unlockedSkins.length}</div></div>
       </div>
     `);
+  },
+
+  showHitMarker() {
+    const el = document.getElementById('vfx-hitmarker');
+    if (!el) return;
+    el.style.opacity = '1';
+    setTimeout(() => { el.style.opacity = '0'; }, 100);
+  },
+
+  showOuchEffect() {
+    const el = document.getElementById('vfx-ouch');
+    if (!el) return;
+    el.style.opacity = '1';
+    setTimeout(() => { el.style.opacity = '0'; }, 150);
+  },
+
+  /**
+   * Updates general player status and triggers meta-progression updates.
+   * @param {number} mass - Current total biomass.
+   * @param {number} kills - Current session kills.
+   * @param {Object} AppState - The global application state.
+   */
+  updateStatus(mass, kills, AppState) {
+    const metaApi = AppState.MetaSystem || window.MetaSystem;
+    const meta = metaApi && typeof metaApi.getData === 'function' ? metaApi.getData() : null;
+    if (meta) this.updateXPBar(meta.totalXP);
+    this.updateHints(mass);
+    
+    // Update death screen placeholders proactively
+    const dMass = document.getElementById('d_mass');
+    const dKills = document.getElementById('d_kills');
+    if (dMass) dMass.textContent = Math.floor(mass);
+    if (dKills) dKills.textContent = kills;
+  },
+
+  /**
+   * Triggered when the player reaches a new virulence level.
+   * @param {number} level - The new level reached.
+   */
+  onLevelUp(level) {
+    const el = document.createElement('div');
+    el.className = 'streakAnim';
+    el.style.color = 'var(--cyan)';
+    el.style.fontSize = '40px';
+    el.innerHTML = `EVOLUTION COMPLETE<br><span style="font-size:20px">REACHED LEVEL ${level}</span>`;
+    
+    const container = document.getElementById('streakPopup');
+    if (container) {
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+    }
+    
+    if (window.AudioEngine && window.AudioEngine.playAchievementUnlock) {
+        window.AudioEngine.playAchievementUnlock();
+    }
   }
 };

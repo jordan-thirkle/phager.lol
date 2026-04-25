@@ -1,5 +1,3 @@
-import * as pc from 'playcanvas';
-
 export const NEON = ['#ff0088','#00ffff','#ffff00','#ff6600','#00ff88','#ff00ff','#88ff00','#0088ff','#ff4488','#ffbb00'];
 
 export const AppState = {
@@ -10,8 +8,9 @@ export const AppState = {
   myScore: 0,
   myKills: 0,
   shakeAmt: 0,
-  shakeVec: new pc.Vec3(),
+  shakeVec: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
   aberrationAmt: 0,
+  flashAmt: 0,
   batchGroups: {},
   myName: '', 
   myColor: NEON[Math.floor(Math.random()*NEON.length)],
@@ -32,6 +31,8 @@ export const AppState = {
   fpsTime: 0, 
   lastPingTime: 0, 
   sendTimer: 0,
+  uiCache: { leaderboard: '', hof: '' },
+  serverStats: null,
   clientSeq: 1, 
   lastProcessedSeq: 0, 
   pendingInputs: [],

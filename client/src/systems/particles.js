@@ -1,21 +1,24 @@
-import * as pc from 'playcanvas';
+import { BLEND_ADDITIVE, BLEND_NORMAL, Color, Entity, PIXELFORMAT_RGBA8, StandardMaterial, Texture } from 'playcanvas';
+import { AppState } from '../core/state.js';
 
 // ─── PHAGE.LOL Visceral Particle System ───
-const POOL_SIZE = 800; 
+const POOL_SIZE = 480; 
 let app = null;
 const pool = [];
 const matCache = new Map();
 let time = 0;
+let enabled = true;
 
 function hexToColor(hex) {
-  return new pc.Color(parseInt(hex.slice(1,3),16)/255, parseInt(hex.slice(3,5),16)/255, parseInt(hex.slice(5,7),16)/255);
+  return new Color(parseInt(hex.slice(1,3),16)/255, parseInt(hex.slice(3,5),16)/255, parseInt(hex.slice(5,7),16)/255);
 }
 
 export const ParticleSystem = {
   init(pcApp) {
     app = pcApp;
+    enabled = true;
     for (let i = 0; i < POOL_SIZE; i++) {
-      const ent = new pc.Entity(`pt_${i}`);
+      const ent = new Entity(`pt_${i}`);
       ent.addComponent('model', { type: 'sphere' });
       ent.enabled = false;
       app.root.addChild(ent);
@@ -23,7 +26,25 @@ export const ParticleSystem = {
     }
   },
 
+  setEnabled(nextEnabled) {
+    enabled = !!nextEnabled;
+    if (!enabled) {
+      for (const p of pool) {
+        p.alive = false;
+        if (p.ent) p.ent.enabled = false;
+      }
+      this._accum = 0;
+    }
+  },
+
+  getStats() {
+    let active = 0;
+    for (const p of pool) if (p.alive) active++;
+    return { active, total: pool.length, enabled };
+  },
+
   spawn(x, y, z, color, count, speed, size, life, up=true, type='blob') {
+    if (!enabled || !AppState.MetaSystem?.getSetting('particles')) return;
     let spawned = 0;
     for (const p of pool) {
       if (p.alive) continue;
@@ -47,13 +68,13 @@ export const ParticleSystem = {
       
       let mat = matCache.get(color + type);
       if (!mat) {
-          mat = new pc.StandardMaterial();
+          mat = new StandardMaterial();
           const c = hexToColor(color);
           mat.emissive = c; 
           mat.emissiveIntensity = type === 'cytoplasm' ? 1.5 : 4;
           mat.opacity = type === 'cytoplasm' ? 0.6 : 1.0;
-          mat.blendType = type === 'cytoplasm' ? pc.BLEND_ADDITIVE : pc.BLEND_NORMAL;
-          mat.diffuse = new pc.Color(c.r*0.1, c.g*0.1, c.b*0.1);
+          mat.blendType = type === 'cytoplasm' ? BLEND_ADDITIVE : BLEND_NORMAL;
+          mat.diffuse = new Color(c.r*0.1, c.g*0.1, c.b*0.1);
           mat.update();
           matCache.set(color + type, mat);
       }
@@ -63,6 +84,12 @@ export const ParticleSystem = {
   },
 
   update(dt) {
+    if (!enabled || !AppState.MetaSystem?.getSetting('particles')) return;
+    this._accum = (this._accum || 0) + dt;
+    const step = AppState.perfProfile === 'HIGH' ? 1 / 60 : 1 / 30;
+    if (this._accum < step) return;
+    dt = this._accum;
+    this._accum = 0;
     time += dt;
     for (const p of pool) {
       if (!p.alive) continue;
@@ -90,6 +117,10 @@ export const ParticleSystem = {
     this.spawn(x,y,z,color,60,450,25,1.2,true, 'blob');
     this.spawn(x,y,z,color,20,150,40,0.8,true, 'cytoplasm');
     this.spawn(x,y,z,'#ffffff',15,300,8,1.5,true, 'organelle');
+  },
+
+  emitEngulf(x, y, z, color) {
+    this.eatPlayer(x, y, z, color);
   },
   
   virusExplosion(x, y, z, color='#00ff44') {

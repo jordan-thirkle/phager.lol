@@ -1,4 +1,4 @@
-import * as pc from 'playcanvas';
+import { BLEND_ADDITIVE, Color, Entity, StandardMaterial } from 'playcanvas';
 
 // ─── PHAGE.LOL Vibe Jam Portal System ───
 let portal = null;
@@ -8,26 +8,26 @@ export const PortalSystem = {
     init(config) {
         const { scene, exitPosition } = config;
         
-        portal = new pc.Entity('VibeJamExitPortal');
+        portal = new Entity('VibeJamExitPortal');
         portal.addComponent('model', { type: 'cylinder' });
         portal.setLocalScale(40, 5, 40);
         portal.setLocalEulerAngles(90, 0, 0);
         portal.setPosition(exitPosition.x, exitPosition.y, exitPosition.z);
         
-        const mat = new pc.StandardMaterial();
-        mat.emissive = new pc.Color(0, 1, 1);
+        const mat = new StandardMaterial();
+        mat.emissive = new Color(0, 1, 1);
         mat.emissiveIntensity = 5;
         mat.opacity = 0.6;
-        mat.blendType = pc.BLEND_ADDITIVE;
+        mat.blendType = BLEND_ADDITIVE;
         mat.update();
         portal.model.meshInstances[0].material = mat;
         
-        inner = new pc.Entity('VibeJamVortex');
+        inner = new Entity('VibeJamVortex');
         inner.addComponent('model', { type: 'sphere' });
         inner.setLocalScale(30, 30, 1);
         inner.setLocalEulerAngles(90, 0, 0);
-        const imat = new pc.StandardMaterial();
-        imat.emissive = new pc.Color(0, 0.5, 1);
+        const imat = new StandardMaterial();
+        imat.emissive = new Color(0, 0.5, 1);
         imat.emissiveIntensity = 8;
         imat.update();
         inner.model.meshInstances[0].material = imat;

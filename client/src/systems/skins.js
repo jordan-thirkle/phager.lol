@@ -1,4 +1,4 @@
-import * as pc from 'playcanvas';
+import { Color, PIXELFORMAT_RGBA8, Texture } from 'playcanvas';
 
 // ─── PHAGE.LOL Skin Texture Generator (Canvas 2D → PlayCanvas Texture) ───
 const SIZE = 256;
@@ -186,7 +186,7 @@ export const Skins = {
     ctx.globalAlpha = 0.6; ctx.fillStyle = rim;
     ctx.beginPath(); ctx.arc(128,128,128,0,Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
 
-    const tex = new pc.Texture(app.graphicsDevice, { width:SIZE, height:SIZE, format:pc.PIXELFORMAT_RGBA8, mipmaps:true });
+    const tex = new Texture(app.graphicsDevice, { width:SIZE, height:SIZE, format:PIXELFORMAT_RGBA8, mipmaps:true });
     tex.setSource(cv);
     cache[key] = tex;
     return tex;

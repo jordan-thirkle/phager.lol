@@ -22,7 +22,7 @@ function initTouch() {
   if (!overlay) return;
   overlay.style.display = 'block';
   overlay.innerHTML = `
-    <div id="joystick-outer"><div id="joystick-inner"></div></div>
+    <div id="joystick-base"><div id="joystick-knob"></div></div>
     <div id="touch-split" class="touch-btn">SPLIT</div>
     <div id="touch-boost" class="touch-btn">BOOST</div>
     <div id="touch-ability" class="touch-btn">ABILITY</div>
@@ -36,11 +36,11 @@ function initTouch() {
           joystick.active = true; joystick.id = t.identifier;
           joystick.ox = x; joystick.oy = y;
           joystick.x = x; joystick.y = y;
-          const jOuter = document.getElementById('joystick-outer');
-          if (jOuter) {
-              jOuter.style.display = 'block';
-              jOuter.style.left = `${x - 60}px`;
-              jOuter.style.top = `${y - 60}px`;
+          const jBase = document.getElementById('joystick-base');
+          if (jBase) {
+              jBase.style.display = 'block';
+              jBase.style.left = `${x - 50}px`;
+              jBase.style.top = `${y - 50}px`;
           }
       } else {
           const el = document.elementFromPoint(x, y);
@@ -64,10 +64,14 @@ function initTouch() {
       if (t.identifier === joystick.id) {
         joystick.active = false; joystick.id = null;
         InputState.dx = 0; InputState.dz = 0;
-        const jOuter = document.getElementById('joystick-outer');
-        if (jOuter) jOuter.style.display = 'none';
-        const jInner = document.getElementById('joystick-inner');
-        if (jInner) { jInner.style.left = '50%'; jInner.style.top = '50%'; }
+        const jBase = document.getElementById('joystick-base');
+        if (jBase) jBase.style.display = 'none';
+        const jKnob = document.getElementById('joystick-knob');
+        if (jKnob) { 
+          jKnob.style.left = '30px'; 
+          jKnob.style.top = '30px';
+          jKnob.style.transform = 'scale(1)';
+        }
       }
     }
     if (e.touches.length === 0) InputState._touchActive = false;
@@ -141,10 +145,17 @@ export const InputSystem = {
             if (dist > 12) {
                 finalDX = dx / Math.max(dist, 90);
                 finalDZ = dy / Math.max(dist, 90);
-                const jInner = document.getElementById('joystick-inner');
-                if (jInner) {
-                    jInner.style.left = `calc(50% + ${dx / dist * 40}px)`;
-                    jInner.style.top = `calc(50% + ${dy / dist * 40}px)`;
+                const jKnob = document.getElementById('joystick-knob');
+                if (jKnob) {
+                    const moveX = (dx / dist) * Math.min(dist, 40);
+                    const moveY = (dy / dist) * Math.min(dist, 40);
+                    jKnob.style.left = `${30 + moveX}px`;
+                    jKnob.style.top = `${30 + moveY}px`;
+                    
+                    // Liquid distortion: stretch in movement direction
+                    const stretch = 1 + (dist / 100) * 0.3;
+                    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                    jKnob.style.transform = `rotate(${angle}deg) scaleX(${stretch})`;
                 }
             }
         } else if (!InputState._touchActive) {
