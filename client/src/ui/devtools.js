@@ -735,10 +735,7 @@ function ensureStyles() {
   document.head.appendChild(style);
 }
 
-function ensureUI() {
-  if (initialized) return;
-  ensureStyles();
-
+function buildDOM() {
   const root = document.createElement('div');
   root.id = 'phage-devtools-root';
   root.innerHTML = `
@@ -813,6 +810,10 @@ function ensureUI() {
     </aside>
   `;
   document.body.appendChild(root);
+  return root;
+}
+
+function assignRefs(root) {
   refs.root = root;
   refs.panel = root.querySelector('#phage-devtools-panel');
   refs.status = root.querySelector('#dt-status-pill');
@@ -829,7 +830,9 @@ function ensureUI() {
   refs.gameplay = root.querySelector('#dt-gameplay');
   refs.settings = root.querySelector('#dt-settings');
   refs.perf = root.querySelector('#dt-perf');
+}
 
+function bindUIEvents(root) {
   root.querySelector('#phage-devtools-toggle').addEventListener('click', () => toggle());
   root.addEventListener('click', e => {
     const btn = e.target.closest?.('[data-action]');
@@ -842,6 +845,15 @@ function ensureUI() {
     if (action === 'respawn') refs.game?.respawn?.();
     if (action === 'profile') toggleProfiler();
   });
+}
+
+function ensureUI() {
+  if (initialized) return;
+  ensureStyles();
+
+  const root = buildDOM();
+  assignRefs(root);
+  bindUIEvents(root);
 
   visible = LS.get('devtools_open', false);
   setVisible(visible);
