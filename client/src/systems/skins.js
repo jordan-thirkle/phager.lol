@@ -147,7 +147,9 @@ const drawers = {
           ctx.putImageData(data, offset, y);
           if (offset > 0) ctx.putImageData(data, offset - SIZE, y);
           else ctx.putImageData(data, offset + SIZE, y);
-      } catch(e) {}
+      } catch(e) {
+          // Ignore potential IndexSizeError during rapid canvas manipulation
+      }
     }
   },
   void(ctx, color) {

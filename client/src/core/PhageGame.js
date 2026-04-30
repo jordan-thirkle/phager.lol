@@ -700,6 +700,8 @@ export class PhageGame {
       console.error('❌ Failed to initialize Socket.io:', e);
     }
 
+    if (!AppState.socket) return;
+
     AppState.socket.on('playerCount', count => {
       const el = document.getElementById('playerCount');
       if (el) el.textContent = count;
