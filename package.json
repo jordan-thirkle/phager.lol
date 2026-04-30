@@ -8,6 +8,7 @@
     "start": "node server/server.js",
     "dev": "concurrently \"npm run start\" \"cd client && npm run dev\"",
     "smoke": "node scripts/playtest_smoke.cjs",
+    "test:client": "node --test client/tests/core/*.test.js",
     "install-client": "cd client && npm install",
     "install-server": "cd server && npm install",
     "postinstall": "npm run install-client && npm run install-server"
@@ -19,6 +20,7 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "jsdom": "^29.1.0"
   }
 }
