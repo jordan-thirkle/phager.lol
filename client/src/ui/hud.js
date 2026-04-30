@@ -58,6 +58,16 @@ function getUnlockHint(type, id) {
   return hints[type]?.[id] || 'LOCKED';
 }
 
+export function escapeHTML(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export const HudSystem = {
   updateXPBar(xp) {
     const lv = getLevel(xp), next = getNextLevel(xp);
@@ -102,7 +112,8 @@ export const HudSystem = {
         const el = document.createElement('div');
         const date = new Date(entry.date).toLocaleDateString([], { month: 'short', day: 'numeric' });
         el.className = 'hof-item';
-        el.innerHTML = `<span class="hof-rank">${i+1}.</span> <span class="hof-name">${entry.name}</span> <span class="hof-score">${entry.mass}</span> <span class="hof-date">${date}</span>`;
+        const safeName = escapeHTML(entry.name);
+        el.innerHTML = `<span class="hof-rank">${i+1}.</span> <span class="hof-name">${safeName}</span> <span class="hof-score">${entry.mass}</span> <span class="hof-date">${date}</span>`;
         list.appendChild(el);
     });
   },
@@ -179,7 +190,8 @@ export const HudSystem = {
 
     listEl.innerHTML = lb.map((e, i) => {
       const isX = e.name && e.name.startsWith('@');
-      const nameHtml = isX ? `<a href="https://x.com/${e.name.slice(1)}" target="_blank">${e.name.slice(0, 12)}</a>` : e.name.slice(0, 12);
+      const safeName = escapeHTML(e.name.slice(0, 12));
+      const nameHtml = isX ? `<a href="https://x.com/${encodeURIComponent(e.name.slice(1))}" target="_blank">${safeName}</a>` : safeName;
       const isMe = e.id === AppState.myId;
       const gap = (i > 0 && isMe) ? `<span style="font-size:8px; opacity:0.6; margin-left:5px;">-${topMass - e.mass}</span>` : '';
       
@@ -196,7 +208,9 @@ export const HudSystem = {
     const el = document.createElement('div');
     el.className = 'kfe';
     el.style.borderRightColor = color || 'var(--magenta)';
-    el.innerHTML = `<span style="color:${color}">${attackerName}</span> ➔ <span>${targetName}</span>`;
+    const safeAttacker = escapeHTML(attackerName);
+    const safeTarget = escapeHTML(targetName);
+    el.innerHTML = `<span style="color:${color}">${safeAttacker}</span> ➔ <span>${safeTarget}</span>`;
     kf.appendChild(el);
     setTimeout(() => {
       el.style.opacity = '0';
@@ -418,7 +432,7 @@ export const HudSystem = {
            <div id="demo-blob-preview" style="width:180px; height:180px; border-radius:50%; background:${loadout.primaryColor}; box-shadow: 0 0 50px ${loadout.primaryColor}; position:relative; overflow:hidden; border: 4px solid rgba(255,255,255,0.2);">
               <div id="demo-blob-skin" class="skin-${loadout.skin}" style="position:absolute; inset:0; opacity:0.6;"></div>
            </div>
-           <div id="demo-phage-title" style="margin-top:20px; font-family:'Orbitron'; font-weight:900; font-size:22px; color:${loadout.primaryColor}">${loadout.title}</div>
+           <div id="demo-phage-title" style="margin-top:20px; font-family:'Orbitron'; font-weight:900; font-size:22px; color:${loadout.primaryColor}">${escapeHTML(loadout.title)}</div>
            <div id="unlock-info" style="margin-top:20px; font-size:11px; color:var(--magenta); font-family:Orbitron;"></div>
         </div>
       </div>
