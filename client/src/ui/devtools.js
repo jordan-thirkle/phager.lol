@@ -1030,17 +1030,7 @@ function getSnapshot() {
   };
 }
 
-function updateSummary(snapshot, dt) {
-  const counts = getCounts();
-  const socket = AppState.socket;
-  const stateGap = AppState.lastPingTime ? Date.now() - AppState.lastPingTime : 0;
-  const packetRate = getPacketRate();
-  const frameTime = dt ? dt * 1000 : 0;
-  const stats = AppState.app?.stats;
-  const drawCalls = stats ? (stats.drawCalls?.total ?? stats.drawCalls ?? 0) : 0;
-  const triangles = stats?.frame?.triangles ?? 0;
-  const mem = performance.memory ? `${fmtBytes(performance.memory.usedJSHeapSize)} / ${fmtBytes(performance.memory.jsHeapSizeLimit)}` : 'n/a';
-
+function updateRuntimePanel(snapshot, frameTime, drawCalls, triangles, mem) {
   renderRows(refs.runtime, [
     ['FPS', fmtInt(snapshot?.fps || 0)],
     ['Frame', `${frameTime.toFixed(1)}ms`],
@@ -1049,7 +1039,9 @@ function updateSummary(snapshot, dt) {
     ['Heap', mem],
     ['Device', getDeviceSummary()],
   ]);
+}
 
+function updateNetworkPanel(socket, stateGap, packetRate) {
   renderRows(refs.network, [
     ['Socket', socket?.connected ? 'CONNECTED' : 'DISCONNECTED'],
     ['Socket ID', socket?.id || '-'],
@@ -1058,7 +1050,9 @@ function updateSummary(snapshot, dt) {
     ['Pending Inputs', fmtInt(AppState.pendingInputs?.length || 0)],
     ['Seq', `${AppState.clientSeq} / ${AppState.lastProcessedSeq}`],
   ]);
+}
 
+function updateServerPanel() {
   const server = AppState.serverStats;
   renderRows(refs.server, server ? [
     ['Clients', fmtInt(server.clients || 0)],
@@ -1075,7 +1069,9 @@ function updateSummary(snapshot, dt) {
     ['Bots', '-'],
     ['Memory', '-'],
   ]);
+}
 
+function updateGameplayPanel(counts) {
   renderRows(refs.gameplay, [
     ['Mode', AppState.selectedMode || '-'],
     ['Ability', AppState.selectedAbility || '-'],
@@ -1086,7 +1082,9 @@ function updateSummary(snapshot, dt) {
     ['Players', fmtInt(counts.alivePlayers)],
     ['Entities', fmtInt(counts.totalEntities)],
   ]);
+}
 
+function updatePerfPanel() {
   renderRows(refs.perf, [
     ['Profile', AppState.perfProfile || '-'],
     ['Particles', refs.ParticleSystem?.getStats?.()?.active ? `${fmtInt(refs.ParticleSystem.getStats().active)} active` : 'off / idle'],
@@ -1095,7 +1093,9 @@ function updateSummary(snapshot, dt) {
     ['Name', AppState.myName || '-'],
     ['Color', AppState.myColor || '-'],
   ]);
+}
 
+function updateHeaderLabels(snapshot, counts, socket, stateGap, packetRate, frameTime, drawCalls, triangles, mem) {
   if (refs.status) {
     refs.status.textContent = `${socket?.connected ? 'online' : 'offline'} | ${counts.alivePlayers} phages | ${packetRate.toFixed(1)} Hz`;
   }
@@ -1125,6 +1125,26 @@ function updateSummary(snapshot, dt) {
   if (refs.perfProfile) refs.perfProfile.textContent = AppState.perfProfile || '-';
   const tickRate = document.getElementById('tick-rate');
   if (tickRate) tickRate.textContent = `${packetRate.toFixed(1)}Hz`;
+}
+
+function updateSummary(snapshot, dt) {
+  if (!refs.summary) return;
+  const counts = getCounts();
+  const socket = AppState.socket;
+  const stateGap = AppState.lastPingTime ? Date.now() - AppState.lastPingTime : 0;
+  const packetRate = getPacketRate();
+  const frameTime = dt ? dt * 1000 : 0;
+  const stats = AppState.app?.stats;
+  const drawCalls = stats ? (stats.drawCalls?.total ?? stats.drawCalls ?? 0) : 0;
+  const triangles = stats?.frame?.triangles ?? 0;
+  const mem = performance.memory ? `${fmtBytes(performance.memory.usedJSHeapSize)} / ${fmtBytes(performance.memory.jsHeapSizeLimit)}` : 'n/a';
+
+  updateRuntimePanel(snapshot, frameTime, drawCalls, triangles, mem);
+  updateNetworkPanel(socket, stateGap, packetRate);
+  updateServerPanel();
+  updateGameplayPanel(counts);
+  updatePerfPanel();
+  updateHeaderLabels(snapshot, counts, socket, stateGap, packetRate, frameTime, drawCalls, triangles, mem);
 }
 
 function update(force = false) {
