@@ -55,7 +55,9 @@ export const AudioEngine = {
       try {
         node.disconnect();
         if (gain) gain.disconnect();
-      } catch (e) {}
+      } catch (e) {
+        // Ignore errors if the node is already disconnected
+      }
     };
   },
 
