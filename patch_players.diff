@@ -1,0 +1,22 @@
+--- server/server.js
++++ server/server.js
+@@ -231,8 +231,9 @@
+       if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });
+       this.grid.get(key).viruses.push(v);
+     }
+-    for (const pid in this.players) {
+-      const p = this.players[pid];
++    const playersValues = Object.values(this.players);
++    for (let j = 0; j < playersValues.length; j++) {
++      const p = playersValues[j];
+       if (!p || !p.blobs) continue;
+       for (let i = 0; i < p.blobs.length; i++) {
+         const b = p.blobs[i];
+@@ -239,7 +240,7 @@
+         const cx = Math.floor(b.x / GRID_SIZE), cz = Math.floor(b.z / GRID_SIZE);
+         const key = (cx + 1000) * 2000 + (cz + 1000);
+         if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [], decoys: [] });
+-        this.grid.get(key).blobs.push({ pid, idx: i, blob: b });
++        this.grid.get(key).blobs.push({ pid: p.id, idx: i, blob: b });
+       }
+     }
