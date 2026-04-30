@@ -8,9 +8,6 @@ export default {
     onActivate(player, AppState) {
         player.shielded = true;
     },
-    onTick(player, AppState, remainingMs) {
-        // No-op for shield
-    },
     onExpire(player, AppState) {
         player.shielded = false;
     }
