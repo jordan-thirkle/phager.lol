@@ -474,6 +474,16 @@ h1#startTitle {
   #lb, #stats-hud, #xpInfo, #levelBadge, #mm { display: none; }
   #massDisplay { font-size: 20px; }
 }
+
+@media (max-width: 800px) {
+  #customize-layout { display: flex; flex-direction: column; gap: 20px; overflow-y: auto; max-height: 70vh; }
+  #customize-left { order: 2; width: 100%; }
+  #customize-right { order: 1; width: 100%; display: flex; justify-content: center; }
+  #modal-content { padding: 20px; width: 95%; max-height: 90vh; overflow-y: auto; border-radius: 20px; animation: none; }
+  #skin-grid { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); }
+  #ability-select { grid-template-columns: 1fr 1fr; }
+}
+
 </style>
 </head>
 <body>
@@ -509,6 +519,16 @@ h1#startTitle {
   #modeSelect { flex-wrap: wrap !important; justify-content: center !important; }
   .mode-card { min-width: 140px !important; margin: 5px !important; }
 }
+
+@media (max-width: 800px) {
+  #customize-layout { display: flex; flex-direction: column; gap: 20px; overflow-y: auto; max-height: 70vh; }
+  #customize-left { order: 2; width: 100%; }
+  #customize-right { order: 1; width: 100%; display: flex; justify-content: center; }
+  #modal-content { padding: 20px; width: 95%; max-height: 90vh; overflow-y: auto; border-radius: 20px; animation: none; }
+  #skin-grid { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); }
+  #ability-select { grid-template-columns: 1fr 1fr; }
+}
+
 </style>
 
 <main id="home-layout">
@@ -757,6 +777,16 @@ h1#startTitle {
   99% { opacity: 0.5; }
 }
 .text-flicker { animation: text-flicker 4s infinite; }
+
+@media (max-width: 800px) {
+  #customize-layout { display: flex; flex-direction: column; gap: 20px; overflow-y: auto; max-height: 70vh; }
+  #customize-left { order: 2; width: 100%; }
+  #customize-right { order: 1; width: 100%; display: flex; justify-content: center; }
+  #modal-content { padding: 20px; width: 95%; max-height: 90vh; overflow-y: auto; border-radius: 20px; animation: none; }
+  #skin-grid { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); }
+  #ability-select { grid-template-columns: 1fr 1fr; }
+}
+
 </style>
 
 <script>
