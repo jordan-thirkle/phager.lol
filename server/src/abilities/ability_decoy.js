@@ -22,11 +22,5 @@ export default {
         };
         
         AppState.decoys.push(decoy);
-    },
-    onTick(player, AppState, dt) {
-        // Collision check for decoys is handled in the main physics loop in server.js
-    },
-    onExpire(player, AppState) {
-        // Removal logic is handled in server.js or by filtering expired decoys
     }
 };
