@@ -16,6 +16,7 @@ import ModeManager from './src/modes/ModeManager.js';
 import FFA from './src/modes/FFA.js';
 import TeamArena from './src/modes/TeamArena.js';
 import BattleRoyale from './src/modes/BattleRoyale.js';
+import { PersistentStore } from './src/PersistentStore.js';
 import fs from 'fs';
 import path, { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -47,55 +48,8 @@ process.on('unhandledRejection', (reason, promise) => {
 const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
-/**
- * Handles JSON-based file persistence for leaderboards and chat.
- * @class PersistentStore
- * @param {string} filename - Target file in DATA_DIR.
- * @param {Array} defaultData - Initial data if file doesn't exist.
- */
-class PersistentStore {
-  constructor(filename, defaultData = []) {
-    this.path = path.join(DATA_DIR, filename);
-    this.data = defaultData;
-    this.load();
-  }
-  
-  /**
-   * Loads data from disk.
-   * @side_effects Mutates this.data.
-   */
-  load() {
-    try {
-      if (fs.existsSync(this.path)) {
-        this.data = JSON.parse(fs.readFileSync(this.path, 'utf8'));
-      }
-    } catch (e) { console.error(`Failed to load ${this.path}`, e); }
-  }
-
-  /**
-   * Saves data to disk using an atomic rename to prevent corruption.
-   * @AI-CONTEXT: Uses .tmp suffix + renameSync to ensure partial writes don't kill the HOF.
-   */
-  save() {
-    try {
-      const tempPath = this.path + '.tmp';
-      fs.writeFileSync(tempPath, JSON.stringify(this.data), 'utf8');
-      try {
-        fs.renameSync(tempPath, this.path);
-      } catch (renameErr) {
-        if (renameErr.code === 'EPERM') {
-            // Fallback for Windows file locking issues (Cursor Vibe Jam 2026 dev environment)
-            fs.writeFileSync(this.path, JSON.stringify(this.data), 'utf8');
-        } else {
-            throw renameErr;
-        }
-      }
-    } catch (e) { console.error(`Failed to save ${this.path}`, e); }
-  }
-}
-
-const hofStore = new PersistentStore('hallOfFame.json', []);
-const chatStore = new PersistentStore('chatHistory.json', [
+const hofStore = new PersistentStore(DATA_DIR, 'hallOfFame.json', []);
+const chatStore = new PersistentStore(DATA_DIR, 'chatHistory.json', [
   { name: 'DIAGNOSTIC', text: 'PHAGE PROTOCOL INITIALIZED.' },
   { name: 'DIAGNOSTIC', text: 'SCANNING FOR SUSCEPTIBLE BIOMASS...' }
 ]);
