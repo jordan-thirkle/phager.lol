@@ -7,7 +7,7 @@ import { InputSystem } from './input.js';
 import { AudioEngine } from '../systems/audio.js';
 import { ParticleSystem } from '../systems/particles.js';
 import { Skins } from '../systems/skins.js';
-import { HudSystem } from '../ui/hud.js';
+import { HudSystem, escapeHTML } from '../ui/hud.js';
 import { MinimapSystem } from '../ui/minimap.js';
 import { MetaSystem } from '../ui/meta.js';
 import { DevTools } from '../ui/devtools.js';
@@ -860,14 +860,14 @@ export class PhageGame {
 
       const placements = Array.isArray(data?.placements) && data.placements.length > 0
         ? `<div style="margin-top:20px; text-align:left; font-family:monospace; font-size:12px; color:#aaa;">
-            ${data.placements.slice(0, 5).map((p, i) => `<div>#${i + 1} ${p.name} - ${Math.floor(p.massAtDeath || 0)}</div>`).join('')}
+            ${data.placements.slice(0, 5).map((p, i) => `<div>#${i + 1} ${escapeHTML(p.name)} - ${Math.floor(p.massAtDeath || 0)}</div>`).join('')}
           </div>`
         : '';
 
       HudSystem.openModal('MATCH COMPLETE', `
         <div style="text-align:center; font-family:Orbitron;">
-          <div style="color:var(--cyan); letter-spacing:4px; margin-bottom:12px;">${resultType}</div>
-          <div style="font-size:32px; font-weight:900; color:#fff;">${winnerName}</div>
+          <div style="color:var(--cyan); letter-spacing:4px; margin-bottom:12px;">${escapeHTML(resultType)}</div>
+          <div style="font-size:32px; font-weight:900; color:#fff;">${escapeHTML(winnerName)}</div>
           ${placements}
           <div style="margin-top:24px;">
             <button class="btn-primary" onclick="window.location.reload()">BACK TO LOBBY</button>
@@ -1002,7 +1002,9 @@ export class PhageGame {
     if (!container) return;
     const div = document.createElement('div');
     div.className = 'chat-msg';
-    div.innerHTML = `<span style="color:${msg.color || '#0ff'}">${msg.name}:</span> ${msg.text}`;
+    const safeName = escapeHTML(msg.name);
+    const safeText = escapeHTML(msg.text);
+    div.innerHTML = `<span style="color:${msg.color || '#0ff'}">${safeName}:</span> ${safeText}`;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
   }
