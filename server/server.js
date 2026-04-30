@@ -942,7 +942,9 @@ io.on('connection', socket => {
       const pkt = msgpack.decode(new Uint8Array(data));
       p.input = { dx: pkt.dx, dz: pkt.dz };
       p.lastSeq = pkt.seq; 
-    } catch(e){}
+    } catch(e){
+      // Ignore malformed binary input packets
+    }
   });
 
   socket.on('ability', () => {
