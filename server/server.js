@@ -382,6 +382,9 @@ class GameRoom {
       if (p.input) {
         let { dx, dz } = p.input;
         // Anti-Cheat: Normalize/Clamp input to prevent speed hacks (Rule #8)
+        // Sanitization and clamping is also performed at the socket.on('input') handler.
+        dx = Number.isFinite(dx) ? dx : 0;
+        dz = Number.isFinite(dz) ? dz : 0;
         const mag = Math.hypot(dx, dz);
         if (mag > 1) { dx /= mag; dz /= mag; }
         
@@ -940,7 +943,14 @@ io.on('connection', socket => {
     if (!p) return;
     try {
       const pkt = msgpack.decode(new Uint8Array(data));
-      p.input = { dx: pkt.dx, dz: pkt.dz };
+      let dx = Number.isFinite(pkt.dx) ? pkt.dx : 0;
+      let dz = Number.isFinite(pkt.dz) ? pkt.dz : 0;
+      const mag = Math.hypot(dx, dz);
+      if (mag > 1) {
+        dx /= mag;
+        dz /= mag;
+      }
+      p.input = { dx, dz };
       p.lastSeq = pkt.seq; 
     } catch(e){}
   });
