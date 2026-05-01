@@ -642,20 +642,34 @@ class GameRoom {
     const liveLeaderboard = allPlayers.sort((a,b)=>b.score-a.score).slice(0,10).map(p=>({id:p.id, name:p.name, mass:Math.floor(p.score)}));
     
     // Update Persistent Hall of Fame
+    let hofUpdated = false;
+    const hofMap = new Map();
+    for (let i = 0; i < hofStore.data.length; i++) {
+        hofMap.set(hofStore.data[i].name, hofStore.data[i]);
+    }
+
     allPlayers.forEach(p => {
         if (p.isBot) return;
-        const existing = hofStore.data.find(h => h.name === p.name);
+        const existing = hofMap.get(p.name);
         if (!existing || p.score > existing.mass) {
             if (existing) {
                 existing.mass = Math.floor(p.score);
                 existing.date = new Date().toISOString();
             } else {
-                hofStore.data.push({ name: p.name, mass: Math.floor(p.score), date: new Date().toISOString() });
+                const newEntry = { name: p.name, mass: Math.floor(p.score), date: new Date().toISOString() };
+                hofStore.data.push(newEntry);
+                hofMap.set(p.name, newEntry);
             }
-            hofStore.data.sort((a,b) => b.mass - a.mass);
-            hofStore.data = hofStore.data.slice(0, 50); // Keep top 50
+            hofUpdated = true;
         }
     });
+
+    if (hofUpdated) {
+        hofStore.data.sort((a,b) => b.mass - a.mass);
+        if (hofStore.data.length > 50) {
+            hofStore.data = hofStore.data.slice(0, 50); // Keep top 50
+        }
+    }
 
     const globals = {
       flagOrb: this.mode.mode.flagOrb,
