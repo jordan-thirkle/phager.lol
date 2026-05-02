@@ -10,6 +10,7 @@ const createMockElement = () => {
         innerHTML: '',
         textContent: '',
         className: '',
+        children: [],
         remove: mock.fn(),
         children: []
     };
@@ -23,14 +24,14 @@ const createMockElement = () => {
 global.document = {
     getElementById: mock.fn(() => createMockElement()),
     createElement: mock.fn(() => createMockElement()),
-    createTextNode: mock.fn((text) => ({ textContent: text }))
+    createTextNode: mock.fn((text) => ({ isTextNode: true, textContent: text })),
 };
 
-// Mock PlayCanvas Vec3
 global.Vec3 = class { constructor(x,y,z) { this.x=x;this.y=y;this.z=z; } clone() { return new global.Vec3(this.x,this.y,this.z); } };
 
 // Import HudSystem
 import { HudSystem } from './hud.js';
+import { PhageGame } from '../core/PhageGame.js';
 
 test('HudSystem XSS Vulnerabilities', async (t) => {
     await t.test('pushKillfeed should not render malicious HTML in names', () => {
@@ -104,5 +105,35 @@ test('HudSystem XSS Vulnerabilities', async (t) => {
         // The maliciousName is '"><script>alert(1)</script>'
         // It should NOT appear as-is in the innerHTML
         assert.ok(!lbList.innerHTML.includes(maliciousName), 'Leaderboard should escape malicious names');
+    });
+});
+
+test('PhageGame XSS Vulnerabilities', async (t) => {
+    await t.test('addChatMessage should not be vulnerable to XSS in msg.name, msg.text, or msg.color', () => {
+        const chatMessages = createMockElement();
+        document.getElementById = mock.fn((id) => id === 'chat-messages' ? chatMessages : createMockElement());
+
+        global.AppState = { lastPingTime: 0 };
+        const game = new PhageGame();
+
+        const maliciousMsg = {
+            name: '<img src=x onerror=alert(1)>',
+            text: '<script>alert(1)</script>',
+            color: '"><script>alert(1)</script>'
+        };
+
+        game.addChatMessage(maliciousMsg);
+
+        const addedDiv = chatMessages.lastChild;
+        assert.ok(addedDiv, 'Should have added a message element');
+        assert.strictEqual(addedDiv.className, 'chat-msg');
+
+        assert.strictEqual(addedDiv.children.length, 2, 'Should have appended span and textNode');
+
+        const nameSpan = addedDiv.children[0];
+        assert.strictEqual(nameSpan.textContent, `${maliciousMsg.name}:`);
+
+        const textNode = addedDiv.children[1];
+        assert.strictEqual(textNode.textContent, ` ${maliciousMsg.text}`);
     });
 });
