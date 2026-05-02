@@ -128,7 +128,7 @@ class GameRoom {
       attempts++;
       // Safe Respawn check: no player with > 500 mass nearby (Prevent spawn-camping)
       if (isRespawn) {
-          const safe = !Object.values(this.players).some(p => p.blobs && p.blobs.some(b => b.mass > 500 && Math.hypot(b.x - pos.x, b.z - pos.z) < 400));
+          const safe = !Object.values(this.players).some(p => p.blobs && p.blobs.some(b => b.mass > 500 && (b.x - pos.x) * (b.x - pos.x) + (b.z - pos.z) * (b.z - pos.z) < 160000));
           if (safe) break;
       } else break;
     } while (attempts < 10);
@@ -152,7 +152,7 @@ class GameRoom {
   spawnVirus() {
     this.lastVirusId++;
     let pos;
-    do { pos = this.rndArena(); } while(Object.values(this.players).some(p=>p.blobs&&p.blobs.some(b=>Math.hypot(b.x-pos.x, b.z-pos.z)<150)));
+    do { pos = this.rndArena(); } while(Object.values(this.players).some(p=>p.blobs&&p.blobs.some(b=>(b.x - pos.x) * (b.x - pos.x) + (b.z - pos.z) * (b.z - pos.z) < 22500)));
     const v = { id: this.lastVirusId, x: pos.x, z: pos.z };
     this.viruses[this.lastVirusId] = v;
   }
@@ -389,9 +389,11 @@ class GameRoom {
           for (const cellPlayer of cell.blobs) {
             if (p.id === cellPlayer.pid || deadBlobIds.has(cellPlayer.blob.id)) continue;
             const ob = cellPlayer.blob;
-            const dist = Math.hypot(b.x - ob.x, b.z - ob.z);
+            const dx = b.x - ob.x;
+            const dz = b.z - ob.z;
+            const distSq = dx * dx + dz * dz;
             
-            if (dist < r && b.mass > ob.mass * 1.1) {
+            if (distSq < r * r && b.mass > ob.mass * 1.1) {
               // Dynamic Lysis: Threshold scales 1.1x -> 1.4x based on server population density
               const popDensity = Math.min(1, Object.keys(this.players).length / 20);
               const lysisThreshold = 1.1 + (popDensity * 0.3);
@@ -417,7 +419,7 @@ class GameRoom {
           }
           // Virus Collision: Large phages split when hitting viruses
           for (const v of cell.viruses) {
-            if (this.viruses[v.id] && b.mass > 200 && Math.hypot(b.x-v.x, b.z-v.z) < r) {
+            if (this.viruses[v.id] && b.mass > 200 && (b.x - v.x) * (b.x - v.x) + (b.z - v.z) * (b.z - v.z) < r * r) {
               io.to(this.id).emit('virusEaten', {id: v.id});
               delete this.viruses[v.id];
               this.explodeVirus(p, i);
@@ -426,7 +428,7 @@ class GameRoom {
           }
           // Food Collision: Passive biomass accumulation
           for (const f of cell.foods) {
-            if (Math.hypot(b.x-f.x, b.z-f.z) < r) {
+            if ((b.x - f.x) * (b.x - f.x) + (b.z - f.z) * (b.z - f.z) < r * r) {
               b.mass += f.mass;
               p.score += f.mass;
               this.foodPool.push(f.id);
@@ -440,8 +442,10 @@ class GameRoom {
           const d = dObj.decoy;
           if (!d) continue;
           if (p.id === d.ownerId) continue;
-          const dist = Math.hypot(b.x - d.x, b.z - d.z);
-          if (dist < r && b.mass > d.mass * 0.1) {
+          const dx = b.x - d.x;
+          const dz = b.z - d.z;
+          const distSq = dx * dx + dz * dz;
+          if (distSq < r * r && b.mass > d.mass * 0.1) {
             const ab = this.abilities.get(p.id);
             if (ab && ab.remainingMs < 5000) ab.remainingMs = 5000; 
             
@@ -457,7 +461,7 @@ class GameRoom {
           const ob = other.blob;
           if (!ob || !b) continue;
           const target = this.players[other.pid];
-          if (target && this.mode.canEat(p, target) && Math.hypot(b.x-ob.x, b.z-ob.z) < r * 0.75) {
+          if (target && this.mode.canEat(p, target) && (b.x - ob.x) * (b.x - ob.x) + (b.z - ob.z) * (b.z - ob.z) < r * r * 0.5625) {
             const popDensity = Math.min(1, Object.keys(this.players).length / 20);
             const lysisThreshold = 1.1 + (popDensity * 0.3);
             
@@ -601,17 +605,17 @@ class GameRoom {
         if (other.pid === p.id) continue;
         const op = this.players[other.pid];
         if (!op || !op.blobs || !op.blobs[0]) continue;
-        const d = Math.hypot(b.x - op.blobs[0].x, b.z - op.blobs[0].z);
+        const dx = b.x - op.blobs[0].x; const dz = b.z - op.blobs[0].z; const dSq = dx * dx + dz * dz;
         const oMass = op.blobs.reduce((s,bl)=>s+bl.mass,0);
         if (oMass > bMass * 1.2) {
-          if (d < tDist) { tDist = d; threat = op.blobs[0]; }
+          if (dSq < tDist * tDist) { tDist = Math.sqrt(dSq); threat = op.blobs[0]; }
         } else if (bMass > oMass * 1.5) {
-          if (d < pDist) { pDist = d; prey = op.blobs[0]; }
+          if (dSq < pDist * pDist) { pDist = Math.sqrt(dSq); prey = op.blobs[0]; }
         }
       }
       for (const f of cell.foods) {
-        const d = Math.hypot(b.x-f.x, b.z-f.z);
-        if (d < fDist) { fDist = d; food = f; }
+        const dxF = b.x - f.x; const dzF = b.z - f.z; const dSq = dxF * dxF + dzF * dzF;
+        if (dSq < fDist * fDist) { fDist = Math.sqrt(dSq); food = f; }
       }
     }
 
