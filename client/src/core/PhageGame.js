@@ -1004,9 +1004,13 @@ export class PhageGame {
     if (!container) return;
     const div = document.createElement('div');
     div.className = 'chat-msg';
-    const safeName = escapeHTML(msg.name);
-    const safeText = escapeHTML(msg.text);
-    div.innerHTML = `<span style="color:${msg.color || '#0ff'}">${safeName}:</span> ${safeText}`;
+
+    const nameSpan = document.createElement('span');
+    nameSpan.style.color = msg.color || '#0ff';
+    nameSpan.textContent = `${msg.name}:`;
+    div.appendChild(nameSpan);
+
+    div.appendChild(document.createTextNode(` ${msg.text}`));
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
   }
