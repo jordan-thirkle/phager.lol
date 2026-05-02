@@ -1,3 +1,5 @@
+import { getBlobRadius } from '../utils.js';
+
 const TeamArena = {
   name: 'TEAM ARENA',
   arenaSize: { x: 3000, z: 3000 },
@@ -66,7 +68,7 @@ const TeamArena = {
             if (!p.blobs || !p.blobs[0]) continue;
             const b = p.blobs[0];
             const dist = Math.hypot(b.x - this.flagOrb.x, b.z - this.flagOrb.z);
-            const radius = Math.pow(b.mass, 0.45) * 2.2;
+            const radius = getBlobRadius(b);
             if (dist < radius + 20) {
                 this.flagOrb.carrier = pid;
                 this.flagOrb.lastHeldTeam = p.team;
