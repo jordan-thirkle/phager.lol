@@ -904,8 +904,8 @@ io.on('connection', socket => {
     if (!p) return;
     try {
       const pkt = msgpack.decode(new Uint8Array(data));
-      let dx = Number.isFinite(pkt.dx) ? pkt.dx : 0;
-      let dz = Number.isFinite(pkt.dz) ? pkt.dz : 0;
+      let dx = typeof pkt.dx === 'number' && Number.isFinite(pkt.dx) ? pkt.dx : 0;
+      let dz = typeof pkt.dz === 'number' && Number.isFinite(pkt.dz) ? pkt.dz : 0;
       const mag = Math.hypot(dx, dz);
       if (mag > 1) {
         dx /= mag;
