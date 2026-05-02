@@ -83,6 +83,11 @@ global.localStorage = {
     setItem: mock.fn()
 };
 
+global.localStorage = {
+    getItem: mock.fn(),
+    setItem: mock.fn()
+};
+
 Object.defineProperty(global, 'navigator', {
     value: {
         clipboard: {
