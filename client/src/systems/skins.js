@@ -27,7 +27,7 @@ function drawBase(ctx, color) {
   ctx.beginPath(); ctx.arc(128, 128, 120, 0, Math.PI * 2); ctx.fill();
 }
 
-const drawers = {
+export const drawers = {
   solid(ctx, color) {
     ctx.fillStyle = lighter(color, 160); ctx.globalAlpha = 0.25;
     ctx.beginPath(); ctx.ellipse(100, 90, 35, 22, -Math.PI/4, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;

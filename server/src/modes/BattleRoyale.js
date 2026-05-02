@@ -75,9 +75,6 @@ const BattleRoyale = {
             }
             if (p.blobs.length === 0) {
                 gs.removePlayer(p.id);
-                // The dead event is now handled by removePlayer or a separate emit in server.js
-                // But for immediate feedback:
-                if (typeof io !== 'undefined') io.to(p.id).emit('dead', { killedBy: 'THE ZONE', rank: this.placements.length + 1 });
             }
         }
         // Normal decay

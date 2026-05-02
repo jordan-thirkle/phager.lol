@@ -207,10 +207,26 @@ export const HudSystem = {
     if (!kf) return;
     const el = document.createElement('div');
     el.className = 'kfe';
-    el.style.borderRightColor = color || 'var(--magenta)';
-    const safeAttacker = escapeHTML(attackerName);
-    const safeTarget = escapeHTML(targetName);
-    el.innerHTML = `<span style="color:${color}">${safeAttacker}</span> ➔ <span>${safeTarget}</span>`;
+
+    // Validate color to prevent injection. Allow hex, rgb/rgba, or basic names/css vars.
+    let safeColor = 'var(--magenta)';
+    if (color && /^(#[0-9a-fA-F]{3,8}|rgba?\([0-9\s,.]+\)|var\(--[a-zA-Z0-9-]+\)|[a-zA-Z]+)$/.test(color)) {
+      safeColor = color;
+    }
+
+    el.style.borderRightColor = safeColor;
+
+    const attackerSpan = document.createElement('span');
+    attackerSpan.style.color = safeColor;
+    attackerSpan.textContent = attackerName || '';
+
+    const targetSpan = document.createElement('span');
+    targetSpan.textContent = targetName || '';
+
+    el.appendChild(attackerSpan);
+    el.appendChild(document.createTextNode(' ➔ '));
+    el.appendChild(targetSpan);
+
     kf.appendChild(el);
     setTimeout(() => {
       el.style.opacity = '0';

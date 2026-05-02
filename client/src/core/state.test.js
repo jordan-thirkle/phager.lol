@@ -16,6 +16,8 @@ test('LS wrapper', async (t) => {
         mockStorage = {};
         global.localStorage.getItem.mock.resetCalls();
         global.localStorage.setItem.mock.resetCalls();
+        global.localStorage.getItem.mock.mockImplementation((k) => mockStorage[k] || null);
+        global.localStorage.setItem.mock.mockImplementation((k, v) => { mockStorage[k] = v; });
     });
 
     await t.test('get returns default value when item is not present', () => {
@@ -23,9 +25,10 @@ test('LS wrapper', async (t) => {
         assert.strictEqual(val, 'defVal');
     });
 
-    await t.test('set stores JSON stringified value', () => {
+    await t.test('set stores JSON stringified value with phage_ prefix', () => {
         LS.set('test_key', { a: 1 });
         assert.strictEqual(mockStorage['phage_test_key'], '{"a":1}');
+        assert.strictEqual(global.localStorage.setItem.mock.callCount(), 1);
     });
 
     await t.test('get retrieves and parses stored value from phage_ prefix', () => {
@@ -47,22 +50,15 @@ test('LS wrapper', async (t) => {
     });
 
     await t.test('get returns default value if localStorage throws an error', () => {
-        global.localStorage.getItem = mock.fn(() => { throw new Error('Access Denied'); });
+        global.localStorage.getItem.mock.mockImplementation(() => { throw new Error('Access Denied'); });
         const val = LS.get('test_key', 'fallback');
         assert.strictEqual(val, 'fallback');
-
-        // restore original mock
-        global.localStorage.getItem = mock.fn((k) => mockStorage[k] || null);
     });
 
-    await t.test('set handles localStorage throwing an error', () => {
-        global.localStorage.setItem = mock.fn(() => { throw new Error('Quota Exceeded'); });
-        // Should not throw
+    await t.test('set handles localStorage throwing an error gracefully', () => {
+        global.localStorage.setItem.mock.mockImplementation(() => { throw new Error('Quota Exceeded'); });
         assert.doesNotThrow(() => {
             LS.set('test_key', { a: 1 });
         });
-
-        // restore original mock
-        global.localStorage.setItem = mock.fn((k, v) => { mockStorage[k] = v; });
     });
 });
