@@ -1,3 +1,5 @@
+import { getBlobRadius } from '../utils.js';
+
 const MAGNET_COOLDOWN = 22000;
 const MAGNET_DURATION = 3000;
 
@@ -11,7 +13,7 @@ export default {
     onTick(player, AppState, dt) {
         if (!player.blobs || !player.blobs.length) return;
         const b = player.blobs[0];
-        const radius = Math.pow(b.mass, 0.45) * 2.2;
+        const radius = getBlobRadius(b);
         const magnetRadius = radius * 8;
         
         // Use AppState.getNearbyCells if available

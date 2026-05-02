@@ -17,6 +17,7 @@ import FFA from './src/modes/FFA.js';
 import TeamArena from './src/modes/TeamArena.js';
 import BattleRoyale from './src/modes/BattleRoyale.js';
 import { PersistentStore } from './src/PersistentStore.js';
+import { getBlobRadius } from './src/utils.js';
 import fs from 'fs';
 import path, { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -383,7 +384,7 @@ class GameRoom {
     const deadBlobIds = this.deadBlobIds; // Shared set for the tick
     for (let i=0; i<p.blobs.length; i++) {
       const b = p.blobs[i];
-      const r = Math.pow(b.mass, 0.45) * 2.2;
+      const r = getBlobRadius(b);
       const nearby = this.getNearbyCells(b.x, b.z);
         for (const cell of nearby) {
           for (const cellPlayer of cell.blobs) {
