@@ -1,0 +1,14 @@
+--- server/server.js
++++ server/server.js
+@@ -224,8 +224,9 @@
+       if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });
+       this.grid.get(key).foods.push(f);
+     }
+-    for (const id in this.viruses) {
+-      const v = this.viruses[id];
++    const virusesValues = Object.values(this.viruses);
++    for (let i = 0; i < virusesValues.length; i++) {
++      const v = virusesValues[i];
+       const cx = Math.floor(v.x / GRID_SIZE), cz = Math.floor(v.z / GRID_SIZE);
+       const key = (cx + 1000) * 2000 + (cz + 1000);
+       if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });

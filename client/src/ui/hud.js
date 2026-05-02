@@ -395,6 +395,32 @@ export const HudSystem = {
   openCustomize(MetaSystem) {
     this.openModal('CUSTOMIZE YOUR PHAGE', this.renderCustomize(MetaSystem));
   },
+  setSkin(s, MetaSystem) {
+    const meta = MetaSystem.getData();
+    if (meta.unlockedSkins.includes(s) || s === 'solid') {
+      MetaSystem.setLoadout({ skin: s });
+      this.openCustomize(MetaSystem);
+    }
+  },
+
+  setColor(c, MetaSystem) {
+    MetaSystem.setLoadout({ primaryColor: c });
+    this.openCustomize(MetaSystem);
+  },
+
+  setAbility(a, MetaSystem) {
+    const meta = MetaSystem.getData();
+    if (meta.unlockedAbilities.includes(a)) {
+      MetaSystem.setLoadout({ ability: a });
+      this.openCustomize(MetaSystem);
+    }
+  },
+
+  setTitle(t, MetaSystem) {
+    MetaSystem.setLoadout({ title: t });
+    this.openCustomize(MetaSystem);
+  },
+
 
   renderCustomize(MetaSystem) {
     const meta = MetaSystem.getData();
