@@ -11,9 +11,11 @@ const createMockElement = () => {
         textContent: '',
         className: '',
         remove: mock.fn(),
+        children: []
     };
     el.appendChild = mock.fn((child) => {
         el.lastChild = child;
+        el.children.push(child);
     });
     return el;
 };
@@ -21,6 +23,7 @@ const createMockElement = () => {
 global.document = {
     getElementById: mock.fn(() => createMockElement()),
     createElement: mock.fn(() => createMockElement()),
+    createTextNode: mock.fn((text) => ({ textContent: text }))
 };
 
 // Mock PlayCanvas Vec3
@@ -30,7 +33,7 @@ global.Vec3 = class { constructor(x,y,z) { this.x=x;this.y=y;this.z=z; } clone()
 import { HudSystem } from './hud.js';
 
 test('HudSystem XSS Vulnerabilities', async (t) => {
-    await t.test('pushKillfeed should escape attackerName and targetName', () => {
+    await t.test('pushKillfeed should not render malicious HTML in names', () => {
         const kf = createMockElement();
         document.getElementById = mock.fn((id) => id === 'kf' ? kf : createMockElement());
 
@@ -39,7 +42,30 @@ test('HudSystem XSS Vulnerabilities', async (t) => {
 
         const lastAdded = kf.lastChild;
         assert.ok(lastAdded, 'Should have added an element to killfeed');
-        assert.ok(!lastAdded.innerHTML.includes(maliciousName), 'innerHTML should not contain raw malicious script');
+
+        // With the direct DOM manipulation fix, the malicious string will be in textContent
+        // of the child elements (which is safe), but we want to make sure it's not parsed as HTML
+        const attackerSpan = lastAdded.children[0];
+        assert.strictEqual(attackerSpan.textContent, maliciousName, 'Malicious name should be safely set as textContent');
+        // And there should be no innerHTML use at all on the main element
+        assert.strictEqual(lastAdded.innerHTML, '', 'innerHTML should not be used');
+    });
+
+    await t.test('pushKillfeed should validate color attribute to prevent injection', () => {
+        const kf = createMockElement();
+        document.getElementById = mock.fn((id) => id === 'kf' ? kf : createMockElement());
+
+        const maliciousColor = 'red; background-image: url("javascript:alert(1)")';
+        HudSystem.pushKillfeed('Attacker', 'Target', maliciousColor);
+
+        const lastAdded = kf.lastChild;
+        assert.ok(lastAdded, 'Should have added an element to killfeed');
+
+        // The malicious color should have been rejected, defaulting to var(--magenta)
+        assert.strictEqual(lastAdded.style.borderRightColor, 'var(--magenta)', 'Malicious color should be rejected and default used');
+
+        const attackerSpan = lastAdded.children[0];
+        assert.strictEqual(attackerSpan.style.color, 'var(--magenta)', 'Malicious color should be rejected for span and default used');
     });
 
     await t.test('updateHallOfFame should escape entry name', () => {
