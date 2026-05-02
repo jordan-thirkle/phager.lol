@@ -1,0 +1,14 @@
+--- server/server.js
++++ server/server.js
+@@ -217,8 +217,9 @@
+    */
+   buildSpatialHash() {
+     this.grid.clear();
+-    for (const id in this.foods) {
+-      const f = this.foods[id];
++    const foodsValues = Object.values(this.foods);
++    for (let i = 0; i < foodsValues.length; i++) {
++      const f = foodsValues[i];
+       const cx = Math.floor(f.x / GRID_SIZE), cz = Math.floor(f.z / GRID_SIZE);
+       const key = (cx + 1000) * 2000 + (cz + 1000);
+       if (!this.grid.has(key)) this.grid.set(key, { foods: [], viruses: [], blobs: [] });
