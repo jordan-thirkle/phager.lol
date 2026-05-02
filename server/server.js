@@ -666,6 +666,17 @@ class GameRoom {
 
     const CULL_DIST_SQ = 2500 * 2500; // Hard cap for visual culling
 
+    const precomputedPlayerData = new Map();
+    for (const pid in this.players) {
+        const op = this.players[pid];
+        precomputedPlayerData.set(op.id, {
+            id: op.id, name: op.name, color: op.color,
+            blobs: op.blobs ? op.blobs.map(b => ({ id: b.id, x: Math.round(b.x), z: Math.round(b.z), mass: Math.round(b.mass) })) : [],
+            score: Math.round(op.score || 0), kills: op.kills || 0, xp: op.xp || 0, team: op.team,
+            shielded: op.shielded, dashing: op.dashing, magnetActive: op.magnetActive, ability: this.abilities.get(op.id)
+        });
+    }
+
     for (const socketId in this.players) {
       const p = this.players[socketId];
       if (p.isBot) continue;
@@ -700,12 +711,7 @@ class GameRoom {
               if (!op) continue;
               
               // PERF: Only send essential blob data for non-local players
-              visiblePlayersMap.set(op.id, {
-                  id:op.id, name:op.name, color:op.color, 
-                  blobs:op.blobs.map(b=>({id:b.id, x:Math.round(b.x), z:Math.round(b.z), mass:Math.round(b.mass)})), 
-                  score:Math.round(op.score||0), kills:op.kills||0, xp:op.xp||0, team:op.team,
-                  shielded: op.shielded, dashing: op.dashing, magnetActive: op.magnetActive, ability: this.abilities.get(op.id)
-              });
+              visiblePlayersMap.set(op.id, precomputedPlayerData.get(op.id));
           }
       }
 
