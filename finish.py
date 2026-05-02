@@ -1,0 +1,4 @@
+import urllib.request
+import json
+req = urllib.request.Request("http://localhost:8000/submit", data=json.dumps({"branch_name": "chore/add-team-arena-tests", "commit_message": "🧪 Add test for TeamArena Mode", "title": "🧪 Add test for TeamArena Mode", "description": "🎯 **What:** Adds missing unit tests for the `TeamArena` mode logic in `server/src/modes/TeamArena.test.js`.\n📊 **Coverage:** Covered singleton state resets, `canEat` team/mass checks, `onPlayerJoin` team balancing, `onPlayerDeath` drop logic, `onTick` timer/decay/orb interactions, and `checkWinCondition` states.\n✨ **Result:** Enhanced test coverage for the Team Arena mode, ensuring robust multiplayer mechanics and safe refactoring."}).encode(), headers={'Content-Type': 'application/json'})
+print(urllib.request.urlopen(req).read().decode())
