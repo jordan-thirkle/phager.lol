@@ -63,14 +63,17 @@ global.window = {
     location: { reload: mock.fn() },
     performance: { memory: {} },
     innerWidth: 1920,
-    innerHeight: 1080
+    innerHeight: 1080,
+    navigator: { userAgent: 'test-agent' }
 };
 
+global.window.navigator = { userAgent: 'test-agent' };
 Object.defineProperty(global, 'navigator', {
     value: {
         clipboard: {
             writeText: mock.fn()
-        }
+        },
+        userAgent: 'test-agent'
     },
     writable: true,
     configurable: true

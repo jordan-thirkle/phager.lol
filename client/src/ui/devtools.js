@@ -1,4 +1,5 @@
 import { AppState, LS } from '../core/state.js';
+import { escapeHTML } from './hud.js';
 
 const STORAGE_KEY = 'phage_devtools_open';
 const PERF_OVERRIDE_KEY = 'dev_perf_profile';
@@ -412,8 +413,8 @@ function renderLog() {
     <div class="dt-log-row dt-${entry.type}">
       <span class="dt-log-time">${nowLabel(entry.ts)}</span>
       <span class="dt-log-type">${entry.type}</span>
-      <span class="dt-log-msg">${entry.message}</span>
-      ${entry.meta ? `<span class="dt-log-meta">${entry.meta}</span>` : ''}
+      <span class="dt-log-msg">${escapeHTML(entry.message)}</span>
+      ${entry.meta ? `<span class="dt-log-meta">${escapeHTML(entry.meta)}</span>` : ''}
     </div>
   `).join('');
 }
