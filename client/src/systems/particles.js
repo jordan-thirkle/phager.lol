@@ -1,4 +1,4 @@
-import { BLEND_ADDITIVE, BLEND_NORMAL, Color, Entity, PIXELFORMAT_RGBA8, StandardMaterial, Texture } from 'playcanvas';
+import { BLEND_ADDITIVE, BLEND_NORMAL, Color, Entity, StandardMaterial } from 'playcanvas';
 import { AppState } from '../core/state.js';
 
 // ─── PHAGE.LOL Visceral Particle System ───
