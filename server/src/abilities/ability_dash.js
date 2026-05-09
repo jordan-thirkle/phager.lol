@@ -1,3 +1,5 @@
+import { getBlobSpeedFactor } from '../utils.js';
+
 const DASH_COOLDOWN = 12000;
 const DASH_DURATION = 300;
 
@@ -16,7 +18,7 @@ export default {
         
         const totalMass = player.blobs.reduce((s,b)=>s+b.mass,0);
         const baseSpeed = 220; // BASE_SPEED from server.js
-        const speed = baseSpeed * Math.pow(totalMass / player.blobs.length, -0.22);
+        const speed = baseSpeed * getBlobSpeedFactor({mass: totalMass / player.blobs.length});
         
         const dx = player.input ? player.input.dx : 1;
         const dz = player.input ? player.input.dz : 0;

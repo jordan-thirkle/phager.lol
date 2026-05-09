@@ -1,4 +1,6 @@
 // ─── PHAGE.LOL Minimap System ───
+import { getBlobRadius } from '../core/utils.js';
+
 let mmCtx = null;
 
 export const MinimapSystem = {
@@ -42,7 +44,7 @@ export const MinimapSystem = {
       for (const b of p.blobs) {
         if (!b) continue;
         const mx = (b.x + arena/2) * s, mz = (b.z + arena/2) * s;
-        const r = Math.max(2, Math.pow(b.mass, 0.45) * 2.2 * s * 0.5);
+        const r = Math.max(2, getBlobRadius(b) * s * 0.5);
         ctx.fillStyle = p.id === AppState.myId ? '#ffff00' : (p.color || '#ff0000');
         ctx.beginPath(); ctx.arc(mx, mz, r, 0, Math.PI*2); ctx.fill();
       }
