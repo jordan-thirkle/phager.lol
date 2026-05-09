@@ -2,6 +2,7 @@ import * as pc from 'playcanvas';
 import { io } from 'socket.io-client';
 import * as MessagePack from '@msgpack/msgpack';
 import { AppState, LS, NEON } from './state.js';
+import { getBlobRadius, getBlobSpeedFactor } from './utils.js';
 import { CameraSystem } from './camera.js';
 import { InputSystem } from './input.js';
 import { AudioEngine } from '../systems/audio.js';
@@ -491,7 +492,7 @@ export class PhageGame {
         const key = blob.id || `${p.id}_${bIdx}`;
         seenKeys.add(key);
         const pEnt = this.getOrMakeBlobEnt(key, p.id, p.color || '#00ffff');
-        const r = this.massToRadius(blob.mass);
+        const r = this.massToRadius(blob);
         const targetX = blob.x;
         const targetZ = blob.z;
         
@@ -565,7 +566,7 @@ export class PhageGame {
     if (AppState.gameState.decoys) {
       for (const d of AppState.gameState.decoys) {
           const dEnt = this.getOrMakeBlobEnt(d.id, d.ownerId, d.color);
-          const r = this.massToRadius(d.mass);
+          const r = this.massToRadius(d);
           dEnt.ent.setPosition(d.x, r, d.z);
           dEnt.ent.setLocalScale(r * 2, r * 2, r * 2);
       }
@@ -741,7 +742,7 @@ export class PhageGame {
       if (data.foods) {
         Object.entries(data.foods).forEach(([fid, f]) => {
           const e = this.getOrMakeFoodEnt(fid, f.color);
-          const r = this.massToRadius(f.mass);
+          const r = this.massToRadius(f);
           e.setLocalScale(r*2, r*2, r*2); e.setPosition(f.x, r, f.z);
         });
       }
@@ -951,8 +952,8 @@ export class PhageGame {
                     
                     // RECONCILIATION: Re-play pending inputs over the server baseline
                     AppState.pendingInputs.forEach(inp => {
-                        const totalMass = meServer.blobs.reduce((s,b)=>s+b.mass,0);
-                        const speed = 220 * Math.pow(totalMass / meServer.blobs.length, -0.22) * (meServer.dashing ? 2.5 : 1);
+                        const avgMass = meServer.blobs.reduce((s,b)=>s+b.mass,0) / meServer.blobs.length;
+                        const speed = 220 * getBlobSpeedFactor({mass: avgMass}) * (meServer.dashing ? 2.5 : 1);
                         predX += inp.dx * speed * (0.05); // 0.05 is server tick dt
                         predZ += inp.dz * speed * (0.05);
                     });
@@ -982,7 +983,7 @@ export class PhageGame {
     if (data.foods) {
       data.foods.forEach(f => {
         const e = this.getOrMakeFoodEnt(f.id, f.color);
-        const r = this.massToRadius(f.mass);
+        const r = this.massToRadius(f);
         e.setLocalScale(r*2, r*2, r*2); e.setPosition(f.x, r, f.z);
       });
     }
@@ -1112,7 +1113,7 @@ export class PhageGame {
     return mat;
   }
 
-  massToRadius(m) { return Math.pow(m, 0.45) * 2.2; }
+  massToRadius(b) { return getBlobRadius(b); }
   hexToRgb01(hex) {
     return { r:parseInt(hex.slice(1,3),16)/255, g:parseInt(hex.slice(3,5),16)/255, b:parseInt(hex.slice(5,7),16)/255 };
   }

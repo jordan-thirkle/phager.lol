@@ -17,7 +17,7 @@ import FFA from './src/modes/FFA.js';
 import TeamArena from './src/modes/TeamArena.js';
 import BattleRoyale from './src/modes/BattleRoyale.js';
 import { PersistentStore } from './src/PersistentStore.js';
-import { getBlobRadius } from './src/utils.js';
+import { getBlobRadius, getBlobSpeedFactor } from './src/utils.js';
 import fs from 'fs';
 import path, { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -352,7 +352,7 @@ class GameRoom {
         // Speed Formula: Inversely proportional to mass^0.22 (Law of Conservation)
         const isBoosting = p.boostUntil && Date.now() < p.boostUntil;
         const boostMultiplier = isBoosting ? 1.6 : 1;
-        const speed = BASE_SPEED * this.mode.getSpeedMultiplier() * streakBoost * boostMultiplier * Math.pow(totalMass / p.blobs.length, -0.22);
+        const speed = BASE_SPEED * this.mode.getSpeedMultiplier() * streakBoost * boostMultiplier * getBlobSpeedFactor({mass: totalMass / p.blobs.length});
         for (const b of p.blobs) {
           b.x += dx * speed * dt;
           b.z += dz * speed * dt;
@@ -743,7 +743,7 @@ class GameRoom {
         viruses: visibleViruses,
         leaderboard: liveLeaderboard,
         hallOfFame: hofStore.data.slice(0, 10),
-        decoys: this.decoys.filter(d => Math.pow(d.x - myPos.x, 2) + Math.pow(d.z - myPos.z, 2) < CULL_DIST_SQ),
+        decoys: this.decoys.filter(d => (d.x - myPos.x) * (d.x - myPos.x) + (d.z - myPos.z) * (d.z - myPos.z) < CULL_DIST_SQ),
         ...globals
       };
 

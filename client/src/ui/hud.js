@@ -1,4 +1,5 @@
 import { Vec3 } from 'playcanvas';
+import { getBlobRadius } from '../core/utils.js';
 // ─── PHAGE.LOL HUD System ───
 const LEVELS = [
   {l:1,xp:0,title:'SPAWN',color:'#888888'},
@@ -163,7 +164,7 @@ export const HudSystem = {
       const mass = p.blobs.reduce((s,bb)=>s+(bb?bb.mass:0),0);
       if (mass < 150 && p.id !== AppState.myId) continue;
       
-      const r = Math.pow(b.mass, 0.45) * 2.2;
+      const r = getBlobRadius(b);
       const wp = new Vec3(b.x, r*2 + 10, b.z);
       const ws = cam.worldToScreen(wp);
       if (!ws) continue;
