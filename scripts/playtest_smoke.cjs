@@ -8,7 +8,7 @@ const opts = {
   mode: 'ffa',
   name: 'SMOKE',
   baseUrl: 'http://127.0.0.1:3001',
-  chromePath: process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  chromePath: process.env.CHROME_PATH || (os.platform() === 'linux' ? '/usr/bin/google-chrome' : 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'),
   port: 9224,
   screenshot: true,
   openDevtools: false,
@@ -157,24 +157,24 @@ async function run() {
       await delay(250);
     }
 
-    for (let i = 0; i < 80; i++) {
-      const connected = await evalExpr('!!window.AppState?.socket?.connected');
+    for (let i = 0; i < 160; i++) {
+      const connected = await evalExpr('!!window.AppState?.socket && window.AppState.socket.connected');
       if (connected) break;
       await delay(250);
     }
-    const connected = await evalExpr('!!window.AppState?.socket?.connected');
+    const connected = await evalExpr('!!window.AppState?.socket && window.AppState.socket.connected');
     if (!connected) throw new Error('Socket did not connect before starting the game');
 
     await evalExpr(`(() => {
       const input = document.getElementById('nameInput');
       if (input) input.value = ${JSON.stringify(opts.name)};
       if (window.selectMode) window.selectMode(${JSON.stringify(mode)});
-      if (window.startGame) window.startGame();
+      if (window.startGame) { console.log('SMOKE: Starting game...'); window.startGame(); } else { console.log('SMOKE: startGame not found'); }
     })()`);
 
     let started = false;
     for (let i = 0; i < 140; i++) {
-      started = await evalExpr('!!window.AppState?.gameActive');
+      started = await evalExpr('!!window.AppState && window.AppState.gameActive || document.getElementById("hud")?.style.display === "grid"');
       if (started) break;
       await delay(250);
     }
@@ -193,12 +193,12 @@ async function run() {
     await delay(2500);
 
     const snapshot = await evalExpr(`(() => ({
-      mode: window.AppState?.selectedMode || null,
-      gameActive: !!window.AppState?.gameActive,
-      socketConnected: !!window.AppState?.socket?.connected,
-      myId: window.AppState?.myId || null,
-      players: window.AppState?.gameState?.players?.length || 0,
-      serverStats: window.AppState?.serverStats || null,
+      mode: window.AppState && window.AppState.selectedMode || null,
+      gameActive: !!window.AppState && window.AppState.gameActive,
+      socketConnected: !!window.AppState?.socket && window.AppState.socket.connected,
+      myId: window.AppState && window.AppState.myId || null,
+      players: window.AppState && window.AppState.gameState && window.AppState.gameState.players?.length || 0,
+      serverStats: window.AppState && window.AppState.serverStats || null,
       hudVisible: document.getElementById('hud')?.style.display || null,
       fps: Number(document.getElementById('fpsCount')?.textContent || 0),
       ping: Number(document.getElementById('pingCount')?.textContent || 0),

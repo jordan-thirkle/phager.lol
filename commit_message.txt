@@ -1,9 +1,0 @@
-🧪 Add tests for PortalSystem
-
-🎯 **What:** The PortalSystem in `client/src/systems/portals.js` had no automated tests to verify its functionality.
-📊 **Coverage:** The new tests cover:
-  - Initializing the portal and adding it to the scene with correct structure and transforms.
-  - Updating logic that ensures both the portal and inner vortex models rotate correctly.
-  - Logic verifying `onExit` is properly called only when a player blob comes within proximity to the portal.
-  - Safe error handling in edge case loops (e.g. absent config values or undefined player entity).
-✨ **Result:** Enhanced test coverage that reliably verifies Playcanvas mock component state logic and core feature behaviors without flakiness.
