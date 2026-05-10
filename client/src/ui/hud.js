@@ -472,7 +472,7 @@ export const HudSystem = {
       </div>
       <div id="customize-right">
         <div id="demo-blob-container">
-           <div id="demo-blob-preview" style="width:180px; height:180px; border-radius:50%; background:${loadout.primaryColor}; box-shadow: 0 0 50px ${loadout.primaryColor}; position:relative; overflow:hidden; border: 4px solid rgba(255,255,255,0.2);">
+           <div id="demo-blob-preview" style="width:180px; height:180px; border-radius:50%; background:${loadout.primaryColor}; box-shadow: 0 0 50px ${loadout.primaryColor}; position:relative; overflow:hidden; border: 4px solid var(--cyan);">
               <div id="demo-blob-skin" class="skin-${loadout.skin}" style="position:absolute; inset:0; opacity:0.6;"></div>
            </div>
            <div id="demo-phage-title" style="margin-top:20px; font-family:'Orbitron'; font-weight:900; font-size:22px; color:${loadout.primaryColor}">${escapeHTML(loadout.title)}</div>
@@ -485,7 +485,7 @@ export const HudSystem = {
 
   openSettings(MetaSystem) {
     const s = MetaSystem.getData().settings;
-    const content = `<div id="settings-list">
+    const content = `<div id="settings-list" class="liquid-glass" style="padding: 20px; border-radius: 12px;">
       <div class="s-row"><span>MASTER VOLUME</span><input type="range" min="0" max="100" value="${s.masterVolume*100}" onchange="HudSystem.setSetting('masterVolume', this.value/100)"></div>
       <div class="s-row"><span>GLOW LAYER</span><input type="checkbox" ${s.glowLayer?'checked':''} onchange="HudSystem.setSetting('glowLayer', this.checked)"></div>
       <div class="s-row"><span>GRID LAYER</span><input type="checkbox" ${s.gridLayer?'checked':''} onchange="HudSystem.setSetting('gridLayer', this.checked)"></div>
@@ -502,7 +502,7 @@ export const HudSystem = {
   openCareer(MetaSystem) {
     const data = MetaSystem.getData();
     this.openModal('CAREER DIAGNOSTICS', `
-      <div class="career-stats" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; font-family:Orbitron;">
+      <div class="career-stats liquid-glass" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; font-family:Orbitron;">
         <div class="ds-card"><div class="ds-label">TOTAL XP</div><div class="ds-value">${data.totalXP}</div></div>
         <div class="ds-card"><div class="ds-label">BEST MASS</div><div class="ds-value">${data.bestBiomass}</div></div>
         <div class="ds-card"><div class="ds-label">TOTAL KILLS</div><div class="ds-value">${data.totalKills}</div></div>

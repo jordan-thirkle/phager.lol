@@ -109,6 +109,29 @@ export class PhageGame {
     window.openGuide = () => HudSystem.openGuide();
     window.openCareer = () => HudSystem.openCareer(MetaSystem);
     window.closeModal = () => HudSystem.closeModal();
+
+    // --- Start Portal Logic ---
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('portal') === 'true' && urlParams.get('ref')) {
+        const refUrl = urlParams.get('ref');
+
+        // Extract params to set as current state if provided
+        if (urlParams.get('username')) {
+            const nameEl = document.getElementById('nameInput');
+            if (nameEl) nameEl.value = urlParams.get('username');
+            AppState.myName = urlParams.get('username');
+        }
+        if (urlParams.get('color')) {
+            MetaSystem.setLoadout({ primaryColor: urlParams.get('color') });
+            AppState.myColor = urlParams.get('color');
+        }
+
+        // Hide intro screens and start game immediately
+        setTimeout(() => this.startGame(), 500);
+
+        this.portalRef = refUrl;
+    }
+
   }
 
   async getHowItWasMade() {
@@ -303,9 +326,10 @@ export class PhageGame {
     const virusGroup = AppState.app.batcher.addGroup("Viruses", true, 100);
     AppState.batchGroups = { food: foodGroup.id, virus: virusGroup.id };
 
-    PortalSystem.init({
+        PortalSystem.init({
       scene: AppState.app.root,
-      exitPosition: { x: -AppState.arenaSize * 0.4, y: 10, z: -AppState.arenaSize * 0.4 }
+      exitPosition: { x: -AppState.arenaSize * 0.4, y: 10, z: -AppState.arenaSize * 0.4 },
+      startPosition: this.portalRef ? { x: AppState.arenaSize * 0.4, y: 10, z: AppState.arenaSize * 0.4 } : null
     });
 
     AppState.app.on('update', dt => this.update(dt));
@@ -328,6 +352,20 @@ export class PhageGame {
         url.searchParams.set('color', AppState.myColor);
         url.searchParams.set('ref', 'phage.lol');
         url.searchParams.set('hp', Math.min(100, Math.floor(mass / 10)));
+        window.location.href = url.toString();
+      },
+      onReturn: () => {
+        if (!this.portalRef) return;
+        const me = AppState.gameState.players.find(p => p && p.id === AppState.myId);
+        const mass = me ? me.blobs.reduce((s, b) => s + b.mass, 0) : 100;
+        let returnUrl = this.portalRef;
+        if (!returnUrl.startsWith('http')) returnUrl = 'https://' + returnUrl;
+        const url = new URL(returnUrl);
+        url.searchParams.set('username', AppState.myName);
+        url.searchParams.set('color', AppState.myColor);
+        url.searchParams.set('ref', 'phage.lol');
+        url.searchParams.set('hp', Math.min(100, Math.floor(mass / 10)));
+        url.searchParams.set('portal', 'true');
         window.location.href = url.toString();
       }
     });
